@@ -4,7 +4,6 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 $ToolRoot = Join-Path $Root '.tools\inno-setup'
 $LocalIscc = Join-Path $ToolRoot 'Inno Setup 6\ISCC.exe'
-$MinimumVersion = [version]'6.7.3'
 
 $candidates = @(
     $LocalIscc,
@@ -14,19 +13,11 @@ $candidates = @(
 ) | Where-Object { $_ -and $_.Trim() }
 
 foreach ($candidate in $candidates) {
-    if (-not (Test-Path $candidate)) { continue }
-
-    try {
-        $productVersionText = (Get-Item $candidate).VersionInfo.ProductVersion
-        $match = [regex]::Match($productVersionText, '\d+\.\d+(?:\.\d+)?')
-        if ($match.Success -and ([version]$match.Value) -ge $MinimumVersion) {
-            Write-Output (Resolve-Path $candidate).Path
-            exit 0
-        }
-        Write-Host "Ignoring older Inno Setup compiler at $candidate ($productVersionText). Minimum: $MinimumVersion."
-    }
-    catch {
-        Write-Host "Ignoring Inno Setup compiler whose version could not be verified: $candidate"
+    if (Test-Path $candidate) {
+        $resolved = (Resolve-Path $candidate).Path
+        Write-Host "Using existing Inno Setup compiler: $resolved"
+        Write-Output $resolved
+        exit 0
     }
 }
 
@@ -52,9 +43,16 @@ if ($actualHash -ne $ExpectedSha256) {
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Write-Host 'Installing the local build-only copy of Inno Setup...'
-& $InstallerPath /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER "/DIR=$InstallDir"
-if ($LASTEXITCODE -ne 0) {
-    throw "Inno Setup bootstrap failed with exit code $LASTEXITCODE."
+$process = Start-Process -FilePath $InstallerPath -ArgumentList @(
+    '/VERYSILENT',
+    '/SUPPRESSMSGBOXES',
+    '/NORESTART',
+    '/CURRENTUSER',
+    "/DIR=$InstallDir"
+) -Wait -PassThru
+
+if ($process.ExitCode -ne 0) {
+    throw "Inno Setup bootstrap failed with exit code $($process.ExitCode)."
 }
 
 if (-not (Test-Path $LocalIscc)) {
