@@ -1,18 +1,50 @@
-name: Build Windows Installer
+name: Windows Smart Installer
 
 on:
-  push:
-    branches: [main, master]
-    tags: ['v*']
   pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
+concurrency:
+  group: smart-installer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 permissions:
-  contents: write
+  contents: read
+
+env:
+  BUILD_PRESET: windows-x64
+  ARTIFACT_NAME: obs-gamepad-hotkeys-windows-x64
 
 jobs:
-  windows-x64:
+  validate:
+    name: Validate source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run static project checks
+        run: python3 tools/static-check.py
+
+      - name: Validate JSON metadata
+        run: |
+          python3 - <<'PY'
+          import json
+          for name in ('buildspec.json', 'CMakePresets.json'):
+              with open(name, encoding='utf-8') as f:
+                  json.load(f)
+              print(f'OK: {name}')
+          PY
+
+  build-installer:
+    name: Build Windows x64 installer
+    needs: validate
     runs-on: windows-2022
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,13 +59,13 @@ jobs:
         shell: pwsh
         run: ./scripts/bootstrap-template.ps1
 
-      - name: Configure
+      - name: Configure plugin
         shell: pwsh
-        run: cmake --preset windows-x64
+        run: cmake --preset $env:BUILD_PRESET
 
       - name: Build plugin
         shell: pwsh
-        run: cmake --build --preset windows-x64
+        run: cmake --build --preset $env:BUILD_PRESET
 
       - name: Sign plugin DLL when certificate is configured
         if: github.event_name != 'pull_request'
@@ -42,70 +74,99 @@ jobs:
           WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
-          $dll = Get-ChildItem build_x64 -Filter obs-gamepad-hotkeys.dll -Recurse -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          $dll = Get-ChildItem build_x64 -Filter obs-gamepad-hotkeys.dll -Recurse -File |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
           if (-not $dll) { throw 'Plugin DLL not found.' }
           ./scripts/sign-windows.ps1 -Files $dll.FullName
 
-      - name: Package plugin ZIP
+      - name: Package manual plugin ZIP
         shell: pwsh
         run: ./scripts/package.ps1
 
-      - name: Build smart installer (pull request)
-        if: github.event_name == 'pull_request'
-        shell: pwsh
-        run: ./scripts/build-installer.ps1 -SkipBuild
-
-      - name: Build smart installer (push or manual)
-        if: github.event_name != 'pull_request'
+      - name: Build smart installer
         shell: pwsh
         env:
-          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ github.event_name != 'pull_request' && secrets.WINDOWS_CERTIFICATE_BASE64 || '' }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
         run: ./scripts/build-installer.ps1 -SkipBuild
 
       - name: Refresh SHA-256 files
         shell: pwsh
         run: ./scripts/write-checksums.ps1 -Path dist
 
-      - name: Validate artifacts
+      - name: Validate release files
         shell: pwsh
         run: |
           $version = (Get-Content buildspec.json -Raw | ConvertFrom-Json).version
           $installer = "dist/OBS-Gamepad-Hotkeys-Setup-v$version.exe"
           $zip = "dist/obs-gamepad-hotkeys-$version-windows-x64.zip"
-          if (-not (Test-Path $installer)) { throw "Missing installer: $installer" }
-          if (-not (Test-Path $zip)) { throw "Missing ZIP: $zip" }
-          Get-ChildItem dist -File | Format-Table Name, Length
+          $required = @($installer, $zip, "$installer.sha256", "$zip.sha256")
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing release file: $file" }
+          }
 
-      - name: Upload Windows release artifacts
+          Write-Host 'Release files:'
+          Get-ChildItem dist -File | Sort-Object Name | Format-Table Name, Length
+
+          "### Windows Smart Installer" >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "Build completed successfully for **v$version**." >> $env:GITHUB_STEP_SUMMARY
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "For normal users, distribute **OBS-Gamepad-Hotkeys-Setup-v$version.exe**." >> $env:GITHUB_STEP_SUMMARY
+          "The ZIP is kept as a manual/fallback installation package." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: obs-gamepad-hotkeys-windows-x64
+          name: ${{ env.ARTIFACT_NAME }}
           path: |
             dist/*.exe
             dist/*.zip
             dist/*.sha256
           if-no-files-found: error
+          retention-days: 30
 
-      - name: Publish tagged GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: pwsh
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-installer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: dist
+
+      - name: Verify SHA-256 manifests
+        working-directory: dist
+        run: |
+          for checksum in *.sha256; do
+            sha256sum --check "$checksum"
+          done
+
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = '${{ github.ref_name }}'
-          $assets = Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.zip', '.sha256' }
-          if (-not $assets) { throw 'No release assets found.' }
-          & gh release view $tag *> $null
-          if ($LASTEXITCODE -eq 0) {
-            $args = @('release', 'upload', $tag, '--clobber')
-            $args += $assets.FullName
-            & gh @args
-            if ($LASTEXITCODE -ne 0) { throw 'GitHub release asset upload failed.' }
-          }
-          else {
-            $args = @('release', 'create', $tag, '--verify-tag', '--generate-notes', '--title', "OBS Gamepad Hotkeys $tag")
-            $args += $assets.FullName
-            & gh @args
-            if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }
-          }
+          tag='${{ github.ref_name }}'
+          title="OBS Gamepad Hotkeys $tag"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* \
+              --verify-tag \
+              --generate-notes \
+              --title "$title"
+          fi
+
+      - name: Release summary
+        run: |
+          echo '### Release published' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Normal users should download the **Setup EXE** from the GitHub Release.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The installer auto-detects standard OBS Studio and supports OBS Portable.' >> "$GITHUB_STEP_SUMMARY"
