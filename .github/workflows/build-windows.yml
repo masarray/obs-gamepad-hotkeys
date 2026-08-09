@@ -53,7 +53,12 @@ jobs:
         shell: pwsh
         run: |
           cmake --version
-          & "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationVersion
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (Test-Path $vswhere) {
+            & $vswhere -latest -products * -property installationVersion
+          } else {
+            Write-Host 'vswhere.exe not found at the standard path; continuing because the actual build script performs its own toolchain validation.'
+          }
 
       - name: Fetch official OBS plugin build support
         shell: pwsh
