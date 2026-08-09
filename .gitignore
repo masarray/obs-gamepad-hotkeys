@@ -1,0 +1,13 @@
+/build*/
+/.deps/
+/.cache/
+*.user
+*.suo
+*.VC.db
+.vs/
+.idea/
+.DS_Store
+*.zip
+/dist/
+/.tools/
+/installer/build.generated.iss
