@@ -1,5 +1,6 @@
 #include "gamepad-dialog.hpp"
 #include "config.hpp"
+#include "gamepad-icons.hpp"
 
 #include <QCloseEvent>
 #include <QComboBox>
@@ -25,6 +26,7 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     : QDialog(parent), manager_(manager), router_(router)
 {
     setWindowTitle("Gamepad Hotkeys");
+    setWindowIcon(lucideGamepadIcon(palette()));
     resize(820, 460);
     setModal(false);
 
@@ -33,6 +35,13 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     root->setSpacing(10);
 
     auto *top = new QHBoxLayout();
+    auto *brandIcon = new QLabel(this);
+    brandIcon->setPixmap(lucideGamepadIcon(palette()).pixmap(QSize(24, 24)));
+    brandIcon->setFixedSize(28, 28);
+    brandIcon->setAlignment(Qt::AlignCenter);
+    brandIcon->setToolTip("OBS Gamepad Hotkeys");
+    top->addWidget(brandIcon);
+
     statusLabel_ = new QLabel(this);
     statusLabel_->setTextInteractionFlags(Qt::NoTextInteraction);
     top->addWidget(statusLabel_, 1);
@@ -49,14 +58,25 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     top->addWidget(addButton);
     root->addLayout(top);
 
+    auto *lastInputRow = new QHBoxLayout();
+    lastInputRow->setSpacing(6);
+    lastInputBadge_ = new QLabel(this);
+    lastInputBadge_->setFixedSize(50, 30);
+    lastInputBadge_->setAlignment(Qt::AlignCenter);
+    lastInputBadge_->hide();
+    lastInputRow->addWidget(lastInputBadge_);
+
     lastInputLabel_ = new QLabel("Last input: —", this);
     lastInputLabel_->setTextInteractionFlags(Qt::NoTextInteraction);
-    root->addWidget(lastInputLabel_);
+    lastInputRow->addWidget(lastInputLabel_, 1);
+    root->addLayout(lastInputRow);
 
     table_ = new QTableWidget(this);
     table_->setColumnCount(4);
     table_->setHorizontalHeaderLabels({"Controller", "Gamepad input", "OBS action", ""});
+    table_->setIconSize(QSize(48, 28));
     table_->verticalHeader()->setVisible(false);
+    table_->verticalHeader()->setDefaultSectionSize(34);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->setAlternatingRowColors(true);
@@ -110,10 +130,13 @@ void GamepadDialog::updateStatus()
     InputEvent event;
     if (manager_.latestEventAfter(lastSeenSequence_, event)) {
         lastSeenSequence_ = event.sequence;
+        const QString control = QString::fromStdString(event.control);
+        lastInputBadge_->setPixmap(gamepadControlIcon(control, palette()).pixmap(QSize(48, 28)));
+        lastInputBadge_->show();
         lastInputLabel_->setText(
             QString("Last input: %1 / %2 / %3")
                 .arg(QString::fromStdString(event.deviceName),
-                     QString::fromStdString(event.control),
+                     control,
                      event.pressed ? "pressed" : "released"));
     }
 }
@@ -126,8 +149,10 @@ void GamepadDialog::rebuildTable()
     for (int row = 0; row < static_cast<int>(mappings.size()); ++row) {
         const Mapping &m = mappings[static_cast<size_t>(row)];
         const QString device = m.deviceKey == "*" ? "Any Controller" : QString::fromStdString(m.deviceKey);
+        const QString control = QString::fromStdString(m.control);
+
         table_->setItem(row, 0, new QTableWidgetItem(device));
-        table_->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(m.control)));
+        table_->setItem(row, 1, new QTableWidgetItem(gamepadControlIcon(control, table_->palette()), control));
         table_->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(m.hotkeyDisplay)));
 
         auto *remove = new QPushButton("Remove", table_);
@@ -156,6 +181,7 @@ void GamepadDialog::addMapping()
 
     QDialog dialog(this);
     dialog.setWindowTitle("Add Gamepad Mapping");
+    dialog.setWindowIcon(lucideGamepadIcon(dialog.palette()));
     dialog.resize(640, 210);
 
     auto *root = new QVBoxLayout(&dialog);
@@ -174,6 +200,14 @@ void GamepadDialog::addMapping()
     auto *inputRow = new QWidget(&dialog);
     auto *inputLayout = new QHBoxLayout(inputRow);
     inputLayout->setContentsMargins(0, 0, 0, 0);
+    inputLayout->setSpacing(6);
+
+    auto *capturedBadge = new QLabel(inputRow);
+    capturedBadge->setFixedSize(50, 30);
+    capturedBadge->setAlignment(Qt::AlignCenter);
+    capturedBadge->hide();
+    inputLayout->addWidget(capturedBadge);
+
     auto *inputEdit = new QLineEdit(inputRow);
     inputEdit->setReadOnly(true);
     inputEdit->setPlaceholderText("Press Listen, then press a gamepad button");
@@ -221,9 +255,11 @@ void GamepadDialog::addMapping()
 
         listenAfter = event.sequence;
         capturedControl = event.control;
+        const QString control = QString::fromStdString(event.control);
+        capturedBadge->setPixmap(gamepadControlIcon(control, dialog.palette()).pixmap(QSize(48, 28)));
+        capturedBadge->show();
         inputEdit->setText(QString("%1  —  %2")
-                               .arg(QString::fromStdString(event.deviceName),
-                                    QString::fromStdString(event.control)));
+                               .arg(QString::fromStdString(event.deviceName), control));
 
         // If a specific device was selected but another device generated the
         // learned event, switch to that device. Any Controller stays wildcard.
@@ -243,6 +279,7 @@ void GamepadDialog::addMapping()
         listening = !listening;
         if (listening) {
             listenAfter = manager_.latestSequence();
+            capturedBadge->hide();
             inputEdit->clear();
             inputEdit->setPlaceholderText("Listening… press one gamepad button");
             listenButton->setText("Cancel Listen");
