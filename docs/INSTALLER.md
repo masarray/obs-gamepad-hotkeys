@@ -2,6 +2,21 @@
 
 The release installer is built with Inno Setup and is designed for users who should not need to know OBS plugin folder layouts.
 
+## Product experience
+
+The installer is intentionally branded as **OBS Gamepad Hotkeys**, not as a generic setup executable. The v0.1.3 polish adds:
+
+- Inno Setup's modern Windows 11 visual style with automatic light/dark adaptation.
+- A branded welcome page that immediately explains the plugin: native gamepad control for OBS Studio.
+- High-DPI gamepad wizard artwork generated during the build, so no manually maintained raster binaries are required in the source tree.
+- A branded small gamepad image on the install/ready pages.
+- A Ready page that clearly shows the detected OBS mode, OBS location, plugin target, and the default `B` / `START` controls.
+- End-user copy that emphasizes **No JoyToKey** and **No keyboard emulation**.
+- An actionable OBS-running message instead of a generic file-in-use error.
+- A Finish option that launches OBS Studio and points the user toward **Tools > Gamepad Hotkeys**.
+
+The generated wizard PNGs live only under `installer/generated/` during a build and are ignored by git.
+
 ## Standard OBS Studio
 
 The installer auto-detects a normal OBS Studio installation from common install locations and Windows uninstall registry entries. For standard OBS Studio it installs the plugin to:
@@ -25,7 +40,7 @@ When standard OBS cannot be found, the installer offers Standard or Portable mod
 
 For automated portable testing, setup also accepts:
 
-`OBS-Gamepad-Hotkeys-Setup-v0.1.0.exe /OBSROOT="D:\Portable\obs-studio"`
+`OBS-Gamepad-Hotkeys-Setup-v<version>.exe /OBSROOT="D:\Portable\obs-studio"`
 
 The path must be a portable OBS root containing `portable_mode.txt` or `portable_mode`.
 
@@ -52,7 +67,7 @@ Visual Studio 2022 C++ tools and CMake are still required to compile the OBS plu
 - `obs-gamepad-hotkeys-<version>-windows-x64.zip`
 - SHA-256 files for both
 
-Pushing a tag such as `v0.1.0` also creates the GitHub Release and attaches those files.
+Pushing a tag such as `v0.1.3` also creates the GitHub Release and attaches those files.
 
 ## Production code signing
 
