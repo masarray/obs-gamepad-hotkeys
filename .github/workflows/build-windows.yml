@@ -134,12 +134,15 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]'))
     needs: build-installer
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Checkout release metadata
+        uses: actions/checkout@v4
+
       - name: Download signed Windows artifacts
         uses: actions/download-artifact@v4
         with:
@@ -157,16 +160,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag='${{ github.ref_name }}'
-          title="OBS Gamepad Hotkeys $tag"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME}"
+            release_mode='existing-tag'
+          else
+            version="$(python3 -c "import json; print(json.load(open('buildspec.json', encoding='utf-8'))['version'])")"
+            tag="v${version}"
+            release_mode='create-tag-from-main'
+          fi
+
+          title="OBS Gamepad Hotkeys ${tag}"
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/* --clobber
-          else
+            gh release edit "$tag" --title "$title" --latest
+          elif [[ "$release_mode" == 'existing-tag' ]]; then
             gh release create "$tag" dist/* \
               --verify-tag \
               --generate-notes \
-              --title "$title"
+              --title "$title" \
+              --latest
+          else
+            gh release create "$tag" dist/* \
+              --target "${GITHUB_SHA}" \
+              --generate-notes \
+              --title "$title" \
+              --latest
           fi
 
       - name: Release summary
