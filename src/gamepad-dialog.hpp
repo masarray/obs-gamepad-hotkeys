@@ -25,6 +25,7 @@ private:
     void updateStatus();
     void addMapping();
     void removeMapping(size_t index);
+    void restoreDefaultMappings();
 
     GamepadManager &manager_;
     ObsHotkeyRouter &router_;
