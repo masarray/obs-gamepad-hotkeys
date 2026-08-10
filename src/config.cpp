@@ -24,6 +24,29 @@ static QString configPath()
     return result;
 }
 
+static bool controlAlreadyMapped(const std::vector<Mapping> &mappings, const std::string &control)
+{
+    for (const Mapping &mapping : mappings) {
+        if (mapping.control == control)
+            return true;
+    }
+    return false;
+}
+
+bool ConfigStore::exists()
+{
+    const QString path = configPath();
+    return !path.isEmpty() && QFileInfo::exists(path);
+}
+
+std::vector<Mapping> ConfigStore::defaults()
+{
+    return {
+        Mapping{"*", "B", kSmartToggleRecordingPause, kSmartToggleRecordingPauseDisplay},
+        Mapping{"*", "START", kSmartToggleRecording, kSmartToggleRecordingDisplay},
+    };
+}
+
 std::vector<Mapping> ConfigStore::load()
 {
     std::vector<Mapping> out;
@@ -35,12 +58,18 @@ std::vector<Mapping> ConfigStore::load()
     if (!file.open(QIODevice::ReadOnly))
         return out;
 
-    QJsonParseError error{};
-    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
-    if (error.error != QJsonParseError::NoError || !doc.isObject())
-        return out;
+    const QByteArray raw = file.readAll();
+    file.close();
 
-    const QJsonArray items = doc.object().value("mappings").toArray();
+    QJsonParseError error{};
+    const QJsonDocument doc = QJsonDocument::fromJson(raw, &error);
+    if (error.error != QJsonParseError::NoError || !doc.isObject()) {
+        blog(LOG_WARNING, "[Gamepad Hotkeys] config.json is invalid; leaving it untouched");
+        return out;
+    }
+
+    const QJsonObject root = doc.object();
+    const QJsonArray items = root.value("mappings").toArray();
     for (const QJsonValue &value : items) {
         const QJsonObject obj = value.toObject();
         Mapping m;
@@ -51,6 +80,26 @@ std::vector<Mapping> ConfigStore::load()
         if (!m.control.empty() && !m.hotkeyKey.empty())
             out.emplace_back(std::move(m));
     }
+
+    // Migrate pre-default-mode configs exactly once. Respect an existing B or
+    // START mapping instead of overriding the user's chosen action.
+    if (root.value("default_mode_version").toInt(0) < 1) {
+        bool changed = false;
+        for (const Mapping &defaultMapping : defaults()) {
+            if (!controlAlreadyMapped(out, defaultMapping.control)) {
+                out.push_back(defaultMapping);
+                changed = true;
+            }
+        }
+
+        if (!save(out)) {
+            blog(LOG_WARNING, "[Gamepad Hotkeys] could not persist default-mode config migration");
+        } else if (changed) {
+            blog(LOG_INFO,
+                 "[Gamepad Hotkeys] existing config migrated with default B/START recording controls where available");
+        }
+    }
+
     return out;
 }
 
@@ -75,7 +124,8 @@ bool ConfigStore::save(const std::vector<Mapping> &mappings)
     }
 
     QJsonObject root;
-    root.insert("schema", 1);
+    root.insert("schema", 2);
+    root.insert("default_mode_version", 1);
     root.insert("mappings", items);
 
     QSaveFile file(path);

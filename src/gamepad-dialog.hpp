@@ -29,6 +29,7 @@ private:
     GamepadManager &manager_;
     ObsHotkeyRouter &router_;
     QLabel *statusLabel_ = nullptr;
+    QLabel *lastInputBadge_ = nullptr;
     QLabel *lastInputLabel_ = nullptr;
     QTableWidget *table_ = nullptr;
     QTimer *timer_ = nullptr;

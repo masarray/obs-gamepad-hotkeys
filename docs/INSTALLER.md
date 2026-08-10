@@ -2,6 +2,22 @@
 
 The release installer is built with Inno Setup and is designed for users who should not need to know OBS plugin folder layouts.
 
+## Product experience
+
+The installer is intentionally branded as **OBS Gamepad Hotkeys**, not as a generic setup executable. The v0.1.5 polish includes:
+
+- Inno Setup's modern Windows 11 visual style with automatic light/dark adaptation.
+- A branded welcome page that immediately explains the plugin: native gamepad control for OBS Studio.
+- The repository's authored `gamepad.jpg` as the installer artwork source.
+- High-quality bicubic scaling during the build while preserving the complete authored sidebar image.
+- **No generated text overlay on top of `gamepad.jpg`**. Any copy already present in the artwork remains the single source of truth.
+- A small wizard image generated from the same artwork with no added copy.
+- A Ready page that clearly shows the detected OBS mode, OBS location, plugin target, and the default `B` / `START` controls.
+- An actionable OBS-running message instead of a generic file-in-use error.
+- A Finish option that launches OBS Studio and points the user toward **Tools > Gamepad Hotkeys**.
+
+The generated wizard PNGs live only under `installer/generated/` during a build and are ignored by git. `gamepad.jpg` is a required repository asset and CI fails if the image-based branding path is removed or if generated text is reintroduced over the artwork.
+
 ## Standard OBS Studio
 
 The installer auto-detects a normal OBS Studio installation from common install locations and Windows uninstall registry entries. For standard OBS Studio it installs the plugin to:
@@ -25,7 +41,7 @@ When standard OBS cannot be found, the installer offers Standard or Portable mod
 
 For automated portable testing, setup also accepts:
 
-`OBS-Gamepad-Hotkeys-Setup-v0.1.0.exe /OBSROOT="D:\Portable\obs-studio"`
+`OBS-Gamepad-Hotkeys-Setup-v<version>.exe /OBSROOT="D:\Portable\obs-studio"`
 
 The path must be a portable OBS root containing `portable_mode.txt` or `portable_mode`.
 
@@ -52,7 +68,7 @@ Visual Studio 2022 C++ tools and CMake are still required to compile the OBS plu
 - `obs-gamepad-hotkeys-<version>-windows-x64.zip`
 - SHA-256 files for both
 
-Pushing a tag such as `v0.1.0` also creates the GitHub Release and attaches those files.
+Pushing a tag such as `v0.1.5` also creates the GitHub Release and attaches those files.
 
 ## Production code signing
 

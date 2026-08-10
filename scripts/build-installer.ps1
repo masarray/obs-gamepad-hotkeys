@@ -84,6 +84,22 @@ try {
 
     New-Item -ItemType Directory -Path $Dist -Force | Out-Null
 
+    # The source artwork lives in the repository so local builds and GitHub
+    # Actions render the exact same branded installer. The generator performs
+    # deterministic crop/overlay work and emits the Inno wizard PNGs.
+    $heroImage = Join-Path $Root 'gamepad.jpg'
+    if (-not (Test-Path $heroImage -PathType Leaf)) {
+        throw "Installer hero image not found: $heroImage"
+    }
+
+    $brandingDir = Join-Path $Root 'installer\generated'
+    $branding = & (Join-Path $PSScriptRoot 'new-installer-branding.ps1') -OutputDir $brandingDir -SourceImage $heroImage
+    $wizardLarge = [string]$branding.Large
+    $wizardSmall = [string]$branding.Small
+    if (-not (Test-Path $wizardLarge) -or -not (Test-Path $wizardSmall)) {
+        throw 'Installer branding assets are missing after generation.'
+    }
+
     $generatedInclude = Join-Path $Root 'installer\build.generated.iss'
     $escapeIss = {
         param([string]$Value)
@@ -93,7 +109,9 @@ try {
         ('#define MyAppVersion "{0}"' -f (& $escapeIss $Version)),
         ('#define PluginDll "{0}"' -f (& $escapeIss $dll.FullName)),
         ('#define PluginDataDir "{0}"' -f (& $escapeIss $dataDir)),
-        ('#define InstallerOutputDir "{0}"' -f (& $escapeIss $Dist))
+        ('#define InstallerOutputDir "{0}"' -f (& $escapeIss $Dist)),
+        ('#define WizardLargeImage "{0}"' -f (& $escapeIss $wizardLarge)),
+        ('#define WizardSmallImage "{0}"' -f (& $escapeIss $wizardSmall))
     )
     $signInstaller = [bool]($env:WINDOWS_CERTIFICATE_BASE64 -or $env:WINDOWS_CERTIFICATE_PATH)
     if ($signInstaller) {

@@ -17,6 +17,12 @@ The implementation calls Windows system APIs:
 
 The project does not redistribute Microsoft's controller DLLs or any controller driver.
 
+## Lucide icon attribution
+
+The configuration UI uses the geometry of Lucide's `gamepad-2` icon. Lucide is ISC licensed. The required notice is distributed with the plugin under `data/licenses/LUCIDE-ISC.txt` and the source contains an attribution comment next to the embedded SVG geometry.
+
+The A/B/X/Y, shoulder, trigger, stick, D-pad, START/BACK, and generic DirectInput button badges are original lightweight Qt drawings in this project; they do not copy console-vendor artwork.
+
 ## Third-party utilities
 
 The plugin does not bundle, launch, or depend on JoyToKey.
