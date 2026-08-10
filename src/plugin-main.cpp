@@ -97,7 +97,19 @@ bool obs_module_load(void)
     return false;
 #else
     g_router = std::make_unique<ogh::ObsHotkeyRouter>();
-    g_router->setMappings(ogh::ConfigStore::load());
+
+    const bool hadConfig = ogh::ConfigStore::exists();
+    auto mappings = hadConfig ? ogh::ConfigStore::load() : ogh::ConfigStore::defaults();
+    if (!hadConfig) {
+        if (ogh::ConfigStore::save(mappings)) {
+            blog(LOG_INFO,
+                 "[Gamepad Hotkeys] default mode created: B=pause/resume recording, START=start/stop recording");
+        } else {
+            blog(LOG_WARNING, "[Gamepad Hotkeys] could not persist first-run default mappings");
+        }
+    }
+    g_router->setMappings(std::move(mappings));
+
     g_manager = std::make_unique<ogh::GamepadManager>();
 
     obs_frontend_add_event_callback(frontendEvent, nullptr);
