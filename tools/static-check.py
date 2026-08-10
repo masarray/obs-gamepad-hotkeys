@@ -9,6 +9,7 @@ required = [
     'src/gamepad-icons.hpp','src/gamepad-icons.cpp','data/licenses/LUCIDE-ISC.txt',
     '.github/workflows/build-windows.yml',
     'installer/obs-gamepad-hotkeys.iss','scripts/build-installer.ps1','scripts/ensure-inno.ps1',
+    'scripts/new-installer-branding.ps1','gamepad.jpg',
     'BUILD-INSTALLER.cmd','BUILD-INSTALLER-AND-RUN.cmd'
 ]
 for rel in required:
@@ -46,6 +47,12 @@ installer = (root / 'installer/obs-gamepad-hotkeys.iss').read_text(encoding='utf
 for required_text in ('{commonappdata}\\obs-studio\\plugins', 'obs-plugins\\64bit', 'bin\\64bit\\obs64.exe', 'PrepareToInstall'):
     if required_text not in installer:
         raise SystemExit(f'Installer routing primitive missing: {required_text}')
+
+branding = (root / 'scripts/new-installer-branding.ps1').read_text(encoding='utf-8')
+for required_text in ('gamepad.jpg', 'Draw-ImageCover', 'HighQualityBicubic'):
+    if required_text not in branding:
+        raise SystemExit(f'Installer branding primitive missing: {required_text}')
+
 install_local = (root / 'scripts/install-local.ps1').read_text(encoding='utf-8')
 if '$env:APPDATA' in install_local:
     raise SystemExit('Legacy APPDATA plugin install path is still present in install-local.ps1')
