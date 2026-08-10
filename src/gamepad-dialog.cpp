@@ -13,6 +13,7 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -47,6 +48,8 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     top->addWidget(statusLabel_, 1);
 
     auto *refreshButton = new QPushButton("Refresh OBS Actions", this);
+    refreshButton->setIcon(lucideRefreshCwIcon(refreshButton->palette()));
+    refreshButton->setIconSize(QSize(16, 16));
     connect(refreshButton, &QPushButton::clicked, this, [this] {
         router_.refreshHotkeys();
         rebuildTable();
@@ -54,6 +57,8 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     top->addWidget(refreshButton);
 
     auto *addButton = new QPushButton("Add Mapping", this);
+    addButton->setIcon(lucidePlusIcon(addButton->palette()));
+    addButton->setIconSize(QSize(16, 16));
     connect(addButton, &QPushButton::clicked, this, [this] { addMapping(); });
     top->addWidget(addButton);
     root->addLayout(top);
@@ -83,7 +88,8 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     table_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     table_->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     table_->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-    table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    table_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    table_->setColumnWidth(3, 44);
     root->addWidget(table_, 1);
 
     auto *hint = new QLabel(
@@ -155,11 +161,29 @@ void GamepadDialog::rebuildTable()
         table_->setItem(row, 1, new QTableWidgetItem(gamepadControlIcon(control, table_->palette()), control));
         table_->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(m.hotkeyDisplay)));
 
-        auto *remove = new QPushButton("Remove", table_);
-        connect(remove, &QPushButton::clicked, this, [this, row] {
+        // Keep destructive actions visually quiet until the user points at them.
+        // The wrapper layout guarantees true horizontal + vertical centering in
+        // the cell instead of letting a text button stretch to row height.
+        auto *removeCell = new QWidget(table_);
+        auto *removeLayout = new QHBoxLayout(removeCell);
+        removeLayout->setContentsMargins(0, 0, 0, 0);
+        removeLayout->setSpacing(0);
+        removeLayout->setAlignment(Qt::AlignCenter);
+
+        auto *remove = new QToolButton(removeCell);
+        remove->setIcon(lucideTrash2Icon(remove->palette()));
+        remove->setIconSize(QSize(17, 17));
+        remove->setFixedSize(28, 28);
+        remove->setAutoRaise(true);
+        remove->setCursor(Qt::PointingHandCursor);
+        remove->setToolTip("Remove mapping");
+        remove->setAccessibleName("Remove mapping");
+        connect(remove, &QToolButton::clicked, this, [this, row] {
             removeMapping(static_cast<size_t>(row));
         });
-        table_->setCellWidget(row, 3, remove);
+
+        removeLayout->addWidget(remove, 0, Qt::AlignCenter);
+        table_->setCellWidget(row, 3, removeCell);
     }
 }
 
