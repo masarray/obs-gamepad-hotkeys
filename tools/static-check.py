@@ -20,6 +20,9 @@ for p in sorted((root/'src').glob('*.[ch]pp')):
     s = p.read_text(encoding='utf-8')
     t = re.sub(r'/\*.*?\*/', '', s, flags=re.S)
     t = re.sub(r'//.*', '', t)
+    # Strip C++ raw string literals before checking delimiters. This matters
+    # for embedded SVG/XML where parentheses are data, not C++ syntax.
+    t = re.sub(r'R"([A-Za-z0-9_]*)\(.*?\)\1"', '""', t, flags=re.S)
     t = re.sub(r'"(?:\\.|[^"\\])*"', '""', t)
     stack=[]; pairs={'{':'}','(':')','[':']'}
     for ch in t:
