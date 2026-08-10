@@ -11,3 +11,4 @@
 /dist/
 /.tools/
 /installer/build.generated.iss
+/installer/generated/
