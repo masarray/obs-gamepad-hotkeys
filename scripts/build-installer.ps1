@@ -84,10 +84,16 @@ try {
 
     New-Item -ItemType Directory -Path $Dist -Force | Out-Null
 
-    # Generate branded, high-DPI PNGs every build so the source repository
-    # remains text-only while the final Setup EXE still has product artwork.
+    # The source artwork lives in the repository so local builds and GitHub
+    # Actions render the exact same branded installer. The generator performs
+    # deterministic crop/overlay work and emits the Inno wizard PNGs.
+    $heroImage = Join-Path $Root 'gamepad.jpg'
+    if (-not (Test-Path $heroImage -PathType Leaf)) {
+        throw "Installer hero image not found: $heroImage"
+    }
+
     $brandingDir = Join-Path $Root 'installer\generated'
-    $branding = & (Join-Path $PSScriptRoot 'new-installer-branding.ps1') -OutputDir $brandingDir
+    $branding = & (Join-Path $PSScriptRoot 'new-installer-branding.ps1') -OutputDir $brandingDir -SourceImage $heroImage
     $wizardLarge = [string]$branding.Large
     $wizardSmall = [string]$branding.Small
     if (-not (Test-Path $wizardLarge) -or -not (Test-Path $wizardSmall)) {
