@@ -39,9 +39,12 @@ for forbidden in ('SendInput','keybd_event','RegisterHotKey'):
 for required_api in ('obs_hotkey_trigger_routed_callback','OBS_TASK_UI','DISCL_BACKGROUND','DISCL_NONEXCLUSIVE'):
     if required_api not in all_src:
         raise SystemExit(f'Required native routing primitive missing: {required_api}')
-for visual_primitive in ('lucideGamepadIcon','gamepadControlIcon','gamepad-2'):
+for visual_primitive in ('lucideGamepadIcon','gamepadControlIcon','gamepad-2','lucideRotateCcwIcon'):
     if visual_primitive not in all_src:
         raise SystemExit(f'Required visual primitive missing: {visual_primitive}')
+for restore_primitive in ('restoreDefaultMappings', 'Other custom mappings will be kept', 'Restore Defaults'):
+    if restore_primitive not in all_src:
+        raise SystemExit(f'Restore-defaults UX primitive missing: {restore_primitive}')
 
 installer = (root / 'installer/obs-gamepad-hotkeys.iss').read_text(encoding='utf-8')
 for required_text in ('{commonappdata}\\obs-studio\\plugins', 'obs-plugins\\64bit', 'bin\\64bit\\obs64.exe', 'PrepareToInstall'):
