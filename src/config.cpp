@@ -24,6 +24,20 @@ static QString configPath()
     return result;
 }
 
+bool ConfigStore::exists()
+{
+    const QString path = configPath();
+    return !path.isEmpty() && QFileInfo::exists(path);
+}
+
+std::vector<Mapping> ConfigStore::defaults()
+{
+    return {
+        Mapping{"*", "B", kSmartToggleRecordingPause, kSmartToggleRecordingPauseDisplay},
+        Mapping{"*", "START", kSmartToggleRecording, kSmartToggleRecordingDisplay},
+    };
+}
+
 std::vector<Mapping> ConfigStore::load()
 {
     std::vector<Mapping> out;
