@@ -22,6 +22,36 @@ if (-not (Test-Path $SourceImage -PathType Leaf)) {
     throw "Installer hero image was not found: $SourceImage"
 }
 
+function Set-HighQualityGraphics {
+    param([System.Drawing.Graphics]$Graphics)
+
+    $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $Graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+}
+
+function Draw-ImageContain {
+    param(
+        [System.Drawing.Graphics]$Graphics,
+        [System.Drawing.Image]$Image,
+        [float]$X,
+        [float]$Y,
+        [float]$Width,
+        [float]$Height
+    )
+
+    [float]$scale = [Math]::Min($Width / [float]$Image.Width, $Height / [float]$Image.Height)
+    [float]$drawWidth = [float]$Image.Width * $scale
+    [float]$drawHeight = [float]$Image.Height * $scale
+    [float]$drawX = $X + (($Width - $drawWidth) / 2.0)
+    [float]$drawY = $Y + (($Height - $drawHeight) / 2.0)
+
+    $destinationRect = [System.Drawing.RectangleF]::new($drawX, $drawY, $drawWidth, $drawHeight)
+    $sourceRect = [System.Drawing.RectangleF]::new(0.0, 0.0, [float]$Image.Width, [float]$Image.Height)
+    $Graphics.DrawImage($Image, $destinationRect, $sourceRect, [System.Drawing.GraphicsUnit]::Pixel)
+}
+
 function Draw-ImageCover {
     param(
         [System.Drawing.Graphics]$Graphics,
@@ -62,107 +92,25 @@ function New-LargeWizardImage {
         [System.Drawing.Image]$HeroImage
     )
 
+    # 3x the classic Inno Setup 164x314 wizard image. The repository artwork
+    # already contains the complete visual design and copy, so do not draw any
+    # additional text, badges, fades, or overlays on top of it.
     [int]$width = 492
     [int]$height = 942
     $bitmap = [System.Drawing.Bitmap]::new($width, $height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-    $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
-    $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
+    Set-HighQualityGraphics -Graphics $graphics
 
-    $background = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        [System.Drawing.Rectangle]::new(0, 0, $width, $height),
-        [System.Drawing.ColorTranslator]::FromHtml('#08111F'),
-        [System.Drawing.ColorTranslator]::FromHtml('#020712'),
-        90.0)
-    $accent = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#60A5FA'))
-    $white = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#F8FAFC'))
-    $muted = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#C2D0DF'))
-    $dim = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#8DA0B5'))
-    $linePen = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(90, 96, 165, 250), 1.0)
-
-    $brandFont = [System.Drawing.Font]::new('Segoe UI', 18, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $titleFont = [System.Drawing.Font]::new('Segoe UI', 38, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $subtitleFont = [System.Drawing.Font]::new('Segoe UI', 17, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-    $benefitFont = [System.Drawing.Font]::new('Segoe UI', 15, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-    $footerFont = [System.Drawing.Font]::new('Segoe UI', 14, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-
+    $background = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#020712'))
     try {
         $graphics.FillRectangle($background, 0, 0, $width, $height)
-
-        # Real repository artwork. Keep the source image undistorted and crop it
-        # with a cover fit so it remains cinematic in the tall Inno sidebar.
-        Draw-ImageCover -Graphics $graphics -Image $HeroImage -X 0 -Y 88 -Width $width -Height 528
-
-        # Darken the top for the product mark and fade the photo into the lower
-        # copy area so text remains readable at every installer scaling level.
-        $topShade = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(118, 2, 7, 18))
-        $heroShade = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(18, 2, 7, 18))
-        $fade = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-            [System.Drawing.Rectangle]::new(0, 430, $width, 240),
-            [System.Drawing.Color]::FromArgb(0, 2, 7, 18),
-            [System.Drawing.Color]::FromArgb(255, 2, 7, 18),
-            90.0)
-        try {
-            $graphics.FillRectangle($heroShade, 0, 88, $width, 430)
-            $graphics.FillRectangle($topShade, 0, 0, $width, 112)
-            $graphics.FillRectangle($fade, 0, 430, $width, 240)
-        }
-        finally {
-            $topShade.Dispose()
-            $heroShade.Dispose()
-            $fade.Dispose()
-        }
-
-        $graphics.DrawString('OBS', $brandFont, $accent, 38, 34)
-        $graphics.DrawString('GAMEPAD HOTKEYS', $brandFont, $white, 88, 34)
-        $graphics.DrawLine($linePen, 38, 75, 454, 75)
-
-        $graphics.DrawString('Control OBS.', $titleFont, $white, 38, 610)
-        $graphics.DrawString('From your gamepad.', $titleFont, $white, 38, 654)
-        $graphics.DrawString(
-            'Native controller input for recording, scenes, audio, replay buffer and more.',
-            $subtitleFont,
-            $muted,
-            [System.Drawing.RectangleF]::new(38, 716, 416, 72))
-
-        $bulletPen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml('#60A5FA'), 2.0)
-        try {
-            $benefits = @(
-                @{ Y = 808; Text = 'NO JOYTOKEY' },
-                @{ Y = 838; Text = 'NO KEYBOARD EMULATION' },
-                @{ Y = 868; Text = 'BACKGROUND READY' }
-            )
-            foreach ($benefit in $benefits) {
-                [float]$y = [float]$benefit.Y
-                $graphics.DrawEllipse($bulletPen, 39, $y + 3, 14, 14)
-                $graphics.DrawLine($bulletPen, 43, $y + 10, 47, $y + 14)
-                $graphics.DrawLine($bulletPen, 47, $y + 14, 51, $y + 7)
-                $graphics.DrawString([string]$benefit.Text, $benefitFont, $accent, 64, $y)
-            }
-        }
-        finally {
-            $bulletPen.Dispose()
-        }
-
-        $graphics.DrawString('Open source • Native OBS plugin', $footerFont, $dim, 38, 912)
-
+        # Preserve the entire authored artwork. Contain-fit avoids clipping any
+        # text that is already baked into gamepad.jpg.
+        Draw-ImageContain -Graphics $graphics -Image $HeroImage -X 0 -Y 0 -Width $width -Height $height
         $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
     }
     finally {
-        $brandFont.Dispose()
-        $titleFont.Dispose()
-        $subtitleFont.Dispose()
-        $benefitFont.Dispose()
-        $footerFont.Dispose()
         $background.Dispose()
-        $accent.Dispose()
-        $white.Dispose()
-        $muted.Dispose()
-        $dim.Dispose()
-        $linePen.Dispose()
         $graphics.Dispose()
         $bitmap.Dispose()
     }
@@ -177,28 +125,15 @@ function New-SmallWizardImage {
     [int]$size = 256
     $bitmap = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-    $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+    Set-HighQualityGraphics -Graphics $graphics
 
-    $borderPen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml('#60A5FA'), 4.0)
     try {
+        # Small wizard art is image-only as well. A centered cover crop keeps
+        # the gamepad visual recognizable without adding duplicate copy.
         Draw-ImageCover -Graphics $graphics -Image $HeroImage -X 0 -Y 0 -Width $size -Height $size
-
-        $shade = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(35, 2, 7, 18))
-        try {
-            $graphics.FillRectangle($shade, 0, 0, $size, $size)
-        }
-        finally {
-            $shade.Dispose()
-        }
-
-        $graphics.DrawRectangle($borderPen, 2, 2, 251, 251)
         $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
     }
     finally {
-        $borderPen.Dispose()
         $graphics.Dispose()
         $bitmap.Dispose()
     }
@@ -222,6 +157,7 @@ if (-not (Test-Path $large) -or -not (Test-Path $small)) {
 }
 
 Write-Host "Installer hero source: $SourceImage"
+Write-Host 'Installer hero mode: image-only (no generated text overlay)'
 Write-Host "Installer branding: $large"
 Write-Host "Installer branding: $small"
 
