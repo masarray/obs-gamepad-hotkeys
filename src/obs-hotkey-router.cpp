@@ -2,6 +2,7 @@
 
 #include <obs.h>
 #include <obs-module.h>
+#include <obs-frontend-api.h>
 
 #include <algorithm>
 #include <memory>
@@ -190,6 +191,7 @@ void ObsHotkeyRouter::releaseAllActive()
                 ids.push_back(id);
         }
         activePressCounts_.clear();
+        activeSmartPressCounts_.clear();
     }
 
     for (size_t id : ids) {
@@ -218,6 +220,7 @@ void ObsHotkeyRouter::setMappings(std::vector<Mapping> mappings)
                 releaseIds.push_back(id);
         }
         activePressCounts_.clear();
+        activeSmartPressCounts_.clear();
         mappings_ = std::move(mappings);
     }
 
@@ -244,17 +247,50 @@ void ObsHotkeyRouter::dispatchUiTask(void *data)
     obs_hotkey_trigger_routed_callback(payload->id, payload->pressed);
 }
 
+void ObsHotkeyRouter::dispatchSmartUiTask(void *data)
+{
+    std::unique_ptr<SmartDispatchPayload> payload(static_cast<SmartDispatchPayload *>(data));
+    if (!payload)
+        return;
+
+    if (payload->actionKey == kSmartToggleRecordingPause) {
+        if (!obs_frontend_recording_active()) {
+            blog(LOG_DEBUG, "[Gamepad Hotkeys] Pause/resume ignored because recording is not active");
+            return;
+        }
+
+        const bool paused = obs_frontend_recording_paused();
+        obs_frontend_recording_pause(!paused);
+        blog(LOG_INFO, "[Gamepad Hotkeys] recording %s from smart gamepad action",
+             paused ? "resumed" : "paused");
+        return;
+    }
+
+    if (payload->actionKey == kSmartToggleRecording) {
+        if (obs_frontend_recording_active()) {
+            blog(LOG_INFO, "[Gamepad Hotkeys] stopping recording from smart gamepad action");
+            obs_frontend_recording_stop();
+        } else {
+            blog(LOG_INFO, "[Gamepad Hotkeys] starting recording from smart gamepad action");
+            obs_frontend_recording_start();
+        }
+    }
+}
+
 void ObsHotkeyRouter::onInputEvent(const InputEvent &event)
 {
     if (suspended_)
         return;
 
     std::vector<DispatchPayload> dispatches;
+    std::vector<std::string> smartDispatches;
     {
         std::scoped_lock lock(mutex_);
         if (suspended_)
             return;
-        std::unordered_set<size_t> unique;
+
+        std::unordered_set<size_t> uniqueHotkeys;
+        std::unordered_set<std::string> uniqueSmartStates;
 
         for (const Mapping &mapping : mappings_) {
             if (mapping.control != event.control)
@@ -262,8 +298,32 @@ void ObsHotkeyRouter::onInputEvent(const InputEvent &event)
             if (mapping.deviceKey != "*" && mapping.deviceKey != event.deviceKey)
                 continue;
 
+            if (mapping.hotkeyKey == kSmartToggleRecordingPause || mapping.hotkeyKey == kSmartToggleRecording) {
+                // Key smart-action edge state by action + control. This lets two
+                // different buttons target the same smart action independently,
+                // while deduplicating duplicate backend reports of one button.
+                const std::string stateKey = mapping.hotkeyKey + "|" + mapping.control;
+                if (!uniqueSmartStates.insert(stateKey).second)
+                    continue;
+
+                if (event.pressed) {
+                    unsigned int &count = activeSmartPressCounts_[stateKey];
+                    ++count;
+                    if (count == 1)
+                        smartDispatches.push_back(mapping.hotkeyKey);
+                } else {
+                    const auto active = activeSmartPressCounts_.find(stateKey);
+                    if (active == activeSmartPressCounts_.end() || active->second == 0)
+                        continue;
+                    --active->second;
+                    if (active->second == 0)
+                        activeSmartPressCounts_.erase(active);
+                }
+                continue;
+            }
+
             const auto runtime = runtimeIds_.find(mapping.hotkeyKey);
-            if (runtime == runtimeIds_.end() || !unique.insert(runtime->second).second)
+            if (runtime == runtimeIds_.end() || !uniqueHotkeys.insert(runtime->second).second)
                 continue;
 
             const size_t id = runtime->second;
@@ -288,6 +348,11 @@ void ObsHotkeyRouter::onInputEvent(const InputEvent &event)
     for (const DispatchPayload &dispatch : dispatches) {
         auto *payload = new DispatchPayload{dispatch.id, dispatch.pressed};
         obs_queue_task(OBS_TASK_UI, &ObsHotkeyRouter::dispatchUiTask, payload, false);
+    }
+
+    for (const std::string &actionKey : smartDispatches) {
+        auto *payload = new SmartDispatchPayload{actionKey};
+        obs_queue_task(OBS_TASK_UI, &ObsHotkeyRouter::dispatchSmartUiTask, payload, false);
     }
 }
 
