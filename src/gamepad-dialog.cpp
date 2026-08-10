@@ -47,14 +47,32 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     statusLabel_->setTextInteractionFlags(Qt::NoTextInteraction);
     top->addWidget(statusLabel_, 1);
 
-    auto *refreshButton = new QPushButton("Refresh OBS Actions", this);
+    // Refresh is intentionally an advanced/recovery action. Opening this
+    // dialog and Add Mapping already refresh the OBS registry, while frontend
+    // scene/profile events also refresh it automatically. Keep a compact
+    // manual escape hatch for dynamically-added plugin hotkeys.
+    auto *refreshButton = new QToolButton(this);
     refreshButton->setIcon(lucideRefreshCwIcon(refreshButton->palette()));
-    refreshButton->setIconSize(QSize(16, 16));
-    connect(refreshButton, &QPushButton::clicked, this, [this] {
+    refreshButton->setIconSize(QSize(17, 17));
+    refreshButton->setFixedSize(32, 32);
+    refreshButton->setAutoRaise(true);
+    refreshButton->setCursor(Qt::PointingHandCursor);
+    refreshButton->setToolTip(
+        "Refresh OBS actions\nUsually not needed — Add Mapping refreshes automatically.");
+    refreshButton->setAccessibleName("Refresh OBS actions");
+    connect(refreshButton, &QToolButton::clicked, this, [this] {
         router_.refreshHotkeys();
         rebuildTable();
     });
     top->addWidget(refreshButton);
+
+    auto *restoreButton = new QPushButton("Restore Defaults", this);
+    restoreButton->setIcon(lucideRotateCcwIcon(restoreButton->palette()));
+    restoreButton->setIconSize(QSize(16, 16));
+    restoreButton->setToolTip(
+        "Restore B = Pause/Resume and START = Start/Stop. Other mappings are kept.");
+    connect(restoreButton, &QPushButton::clicked, this, [this] { restoreDefaultMappings(); });
+    top->addWidget(restoreButton);
 
     auto *addButton = new QPushButton("Add Mapping", this);
     addButton->setIcon(lucidePlusIcon(addButton->palette()));
@@ -93,7 +111,7 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     root->addWidget(table_, 1);
 
     auto *hint = new QLabel(
-        "Default mode: B toggles Pause/Resume Recording and START toggles Start/Stop Recording. You can remove or replace either mapping.",
+        "Defaults: B toggles Pause/Resume Recording and START toggles Start/Stop Recording. Restore Defaults repairs these controls without removing your other mappings.",
         this);
     hint->setWordWrap(true);
     root->addWidget(hint);
@@ -195,6 +213,41 @@ void GamepadDialog::removeMapping(size_t index)
     mappings.erase(mappings.begin() + static_cast<std::ptrdiff_t>(index));
     router_.setMappings(mappings);
     ConfigStore::save(mappings);
+    rebuildTable();
+}
+
+void GamepadDialog::restoreDefaultMappings()
+{
+    QMessageBox prompt(this);
+    prompt.setWindowTitle("Restore Default Controls");
+    prompt.setIcon(QMessageBox::Question);
+    prompt.setText("Restore the default B and START controls?");
+    prompt.setInformativeText(
+        "B  →  Pause / Resume Recording\n"
+        "START  →  Start / Stop Recording\n\n"
+        "Other custom mappings will be kept.");
+    auto *restore = prompt.addButton("Restore Defaults", QMessageBox::AcceptRole);
+    prompt.addButton(QMessageBox::Cancel);
+    prompt.exec();
+    if (prompt.clickedButton() != restore)
+        return;
+
+    // Restore only the two factory controls. This deliberately preserves all
+    // unrelated custom mappings while removing any conflicting B/START mapping
+    // first, so one button can never trigger both a custom and default action.
+    std::vector<Mapping> restored = ConfigStore::defaults();
+    for (const Mapping &mapping : router_.mappings()) {
+        if (mapping.control == "B" || mapping.control == "START")
+            continue;
+        restored.push_back(mapping);
+    }
+
+    router_.setMappings(restored);
+    if (!ConfigStore::save(restored)) {
+        QMessageBox::warning(this,
+                             "Gamepad Hotkeys",
+                             "The default controls were restored for this session, but the configuration could not be saved.");
+    }
     rebuildTable();
 }
 
