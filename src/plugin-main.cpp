@@ -10,6 +10,7 @@
 #include <QWidget>
 
 #include <memory>
+#include <utility>
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-gamepad-hotkeys", "en-US")
