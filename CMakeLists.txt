@@ -22,7 +22,7 @@ add_library(${CMAKE_PROJECT_NAME} MODULE)
 
 find_package(libobs REQUIRED)
 find_package(obs-frontend-api REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg)
 
 target_link_libraries(
   ${CMAKE_PROJECT_NAME}
@@ -31,6 +31,7 @@ target_link_libraries(
     OBS::obs-frontend-api
     Qt6::Core
     Qt6::Widgets
+    Qt6::Svg
     dinput8
     dxguid
 )
@@ -45,6 +46,8 @@ target_sources(
   PRIVATE
     src/plugin-main.cpp
     src/gamepad-types.hpp
+    src/gamepad-icons.hpp
+    src/gamepad-icons.cpp
     src/input-backend.hpp
     src/xinput-backend.hpp
     src/xinput-backend.cpp
