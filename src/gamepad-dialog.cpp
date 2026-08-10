@@ -67,7 +67,7 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     root->addWidget(table_, 1);
 
     auto *hint = new QLabel(
-        "Tip: choose Any Controller for portable profiles. Prefer a button the foreground game does not use to avoid accidental actions.",
+        "Default mode: B toggles Pause/Resume Recording and START toggles Start/Stop Recording. You can remove or replace either mapping.",
         this);
     hint->setWordWrap(true);
     root->addWidget(hint);
@@ -153,10 +153,6 @@ void GamepadDialog::addMapping()
 {
     router_.refreshHotkeys();
     const auto hotkeys = router_.hotkeys();
-    if (hotkeys.empty()) {
-        QMessageBox::warning(this, "Gamepad Hotkeys", "OBS did not expose any hotkeys yet.");
-        return;
-    }
 
     QDialog dialog(this);
     dialog.setWindowTitle("Add Gamepad Mapping");
@@ -190,6 +186,12 @@ void GamepadDialog::addMapping()
     actionCombo->setEditable(true);
     actionCombo->setInsertPolicy(QComboBox::NoInsert);
     actionCombo->setMaxVisibleItems(20);
+
+    actionCombo->addItem(kSmartToggleRecordingPauseDisplay, kSmartToggleRecordingPause);
+    actionCombo->addItem(kSmartToggleRecordingDisplay, kSmartToggleRecording);
+    if (!hotkeys.empty())
+        actionCombo->insertSeparator(actionCombo->count());
+
     for (const HotkeyInfo &hotkey : hotkeys) {
         actionCombo->addItem(QString::fromStdString(hotkey.display),
                              QString::fromStdString(hotkey.stableKey));
