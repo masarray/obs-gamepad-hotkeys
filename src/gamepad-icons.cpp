@@ -91,7 +91,6 @@ QIcon lucideGamepadIcon(const QPalette &palette)
 
     QPixmap pixmap = highDpiPixmap(kLucideIconSize, kLucideIconSize);
     QPainter painter(&pixmap);
-    painter.scale(kDevicePixelRatio, kDevicePixelRatio);
     renderer.render(&painter, QRectF(0, 0, kLucideIconSize, kLucideIconSize));
     return QIcon(pixmap);
 }
@@ -100,7 +99,6 @@ QIcon gamepadControlIcon(const QString &control, const QPalette &palette)
 {
     QPixmap pixmap = highDpiPixmap(kControlIconWidth, kControlIconHeight);
     QPainter painter(&pixmap);
-    painter.scale(kDevicePixelRatio, kDevicePixelRatio);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
     const QColor faceColor = xboxFaceColor(control);
