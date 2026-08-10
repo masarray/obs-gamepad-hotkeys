@@ -12,10 +12,17 @@
 #ifndef InstallerOutputDir
   #error InstallerOutputDir is not defined. Run scripts/build-installer.ps1.
 #endif
+#ifndef WizardLargeImage
+  #error WizardLargeImage is not defined. Run scripts/build-installer.ps1.
+#endif
+#ifndef WizardSmallImage
+  #error WizardSmallImage is not defined. Run scripts/build-installer.ps1.
+#endif
 
 #define MyAppName "OBS Gamepad Hotkeys"
 #define MyPluginName "obs-gamepad-hotkeys"
 #define MyPublisher "Mas Ari / Open Source Contributors"
+#define MyProjectUrl "https://github.com/masarray/obs-gamepad-hotkeys"
 
 [Setup]
 AppId={{8EDE3BA7-760E-47D1-9C15-1C2C811856DF}
@@ -23,6 +30,13 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyPublisher}
+AppPublisherURL={#MyProjectUrl}
+AppSupportURL={#MyProjectUrl}/issues
+AppUpdatesURL={#MyProjectUrl}/releases
+AppComments=Native gamepad control for OBS Studio — no JoyToKey or keyboard emulation required.
+VersionInfoDescription=OBS Gamepad Hotkeys Smart Installer
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppVersion}
 DefaultDirName={commonappdata}\obs-studio\plugins\{#MyPluginName}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -30,7 +44,14 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
-WizardStyle=modern
+WizardStyle=modern dynamic windows11 includetitlebar
+WizardResizable=no
+WizardSizePercent=120,120
+WizardKeepAspectRatio=yes
+WizardImageFile={#WizardLargeImage}
+WizardImageFileDynamicDark={#WizardLargeImage}
+WizardSmallImageFile={#WizardSmallImage}
+WizardSmallImageFileDynamicDark={#WizardSmallImage}
 Compression=lzma2/ultra64
 SolidCompression=yes
 OutputDir={#InstallerOutputDir}
@@ -49,7 +70,7 @@ SignedUninstaller=yes
 #else
 SignedUninstaller=no
 #endif
-DisableWelcomePage=yes
+DisableWelcomePage=no
 DisableReadyPage=no
 DisableReadyMemo=no
 AllowNoIcons=yes
@@ -59,7 +80,7 @@ Source: "{#PluginDll}"; DestDir: "{code:GetPluginBinDir}"; DestName: "{#MyPlugin
 Source: "{#PluginDataDir}\*"; DestDir: "{code:GetPluginDataDir}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Run]
-Filename: "{code:GetObsExePath}"; Description: "Launch OBS Studio"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchObs
+Filename: "{code:GetObsExePath}"; Description: "Launch OBS Studio and open Tools > Gamepad Hotkeys"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchObs
 
 [Code]
 const
@@ -223,6 +244,13 @@ procedure InitializeWizard;
 var
   CommandLineRoot: string;
 begin
+  WizardForm.Caption := 'OBS Gamepad Hotkeys Setup';
+  WizardForm.WelcomeLabel1.Caption := 'OBS Gamepad Hotkeys';
+  WizardForm.WelcomeLabel2.Caption :=
+    'Native gamepad control for OBS Studio.' + #13#10 + #13#10 +
+    'Map controller buttons directly to recording, scenes, audio and other OBS actions — without JoyToKey or keyboard emulation.' + #13#10 + #13#10 +
+    'Setup will detect OBS Studio and install the plugin automatically.';
+
   SelectedInstallMode := InstallModeStandard;
   PortableRoot := '';
 
@@ -330,14 +358,20 @@ begin
 
     PluginLocation := GetPluginBinDir('');
 
+    WizardForm.ReadyLabel.Caption :=
+      'OBS Gamepad Hotkeys is ready to install. Review the detected OBS installation, then click Install.';
     WizardForm.ReadyMemo.Lines.Clear;
-    WizardForm.ReadyMemo.Lines.Add('Ready to install OBS Gamepad Hotkeys.');
+    WizardForm.ReadyMemo.Lines.Add('OBS GAMEPAD HOTKEYS  •  v{#MyAppVersion}');
     WizardForm.ReadyMemo.Lines.Add('');
-    WizardForm.ReadyMemo.Lines.Add('OBS mode: ' + InstallType);
-    WizardForm.ReadyMemo.Lines.Add('OBS location: ' + ObsLocation);
-    WizardForm.ReadyMemo.Lines.Add('Plugin location: ' + PluginLocation);
+    WizardForm.ReadyMemo.Lines.Add('OBS mode:      ' + InstallType);
+    WizardForm.ReadyMemo.Lines.Add('OBS location:  ' + ObsLocation);
+    WizardForm.ReadyMemo.Lines.Add('Plugin target: ' + PluginLocation);
     WizardForm.ReadyMemo.Lines.Add('');
-    WizardForm.ReadyMemo.Lines.Add('No JoyToKey or keyboard emulation is required.');
+    WizardForm.ReadyMemo.Lines.Add('Default controls');
+    WizardForm.ReadyMemo.Lines.Add('  B       Pause / Resume Recording');
+    WizardForm.ReadyMemo.Lines.Add('  START   Start / Stop Recording');
+    WizardForm.ReadyMemo.Lines.Add('');
+    WizardForm.ReadyMemo.Lines.Add('Native controller input • No JoyToKey • No keyboard emulation');
   end;
 end;
 
@@ -347,7 +381,9 @@ begin
   NeedsRestart := False;
 
   if IsObsRunning then begin
-    Result := 'OBS Studio is still open. Close OBS Studio, then click Install again.';
+    Result :=
+      'OBS Studio is currently open.' + #13#10 + #13#10 +
+      'Close OBS Studio so Gamepad Hotkeys can be updated safely, then click Install again.';
     Exit;
   end;
 end;
