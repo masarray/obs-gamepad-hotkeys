@@ -49,9 +49,11 @@ for required_text in ('{commonappdata}\\obs-studio\\plugins', 'obs-plugins\\64bi
         raise SystemExit(f'Installer routing primitive missing: {required_text}')
 
 branding = (root / 'scripts/new-installer-branding.ps1').read_text(encoding='utf-8')
-for required_text in ('gamepad.jpg', 'Draw-ImageCover', 'HighQualityBicubic'):
+for required_text in ('gamepad.jpg', 'Draw-ImageContain', 'Draw-ImageCover', 'HighQualityBicubic'):
     if required_text not in branding:
         raise SystemExit(f'Installer branding primitive missing: {required_text}')
+if 'DrawString' in branding:
+    raise SystemExit('Installer branding must not draw duplicate text over gamepad.jpg')
 
 install_local = (root / 'scripts/install-local.ps1').read_text(encoding='utf-8')
 if '$env:APPDATA' in install_local:
