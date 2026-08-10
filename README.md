@@ -2,7 +2,7 @@
 
 Native Windows gamepad input for OBS Studio. The plugin reads controllers directly and routes button press/release events to OBS's registered hotkey callbacks — no JoyToKey, keyboard emulation, or foreground-window dependency.
 
-> **Status:** v0.1.3 preview. Windows x64. XInput + DirectInput. Windows builds, the manual ZIP, and the Smart Installer are validated by GitHub Actions; physical-controller behavior should still be exercised on the controllers/OBS versions targeted by each public release.
+> **Status:** v0.1.5 public preview. Windows x64. XInput + DirectInput. Windows builds, the manual ZIP, and the Smart Installer are validated by GitHub Actions; physical-controller behavior should still be exercised on the controllers/OBS versions targeted by each public release.
 
 ## Why this exists
 
@@ -60,7 +60,7 @@ GitHub Actions builds a branded smart Windows installer:
 
 For a normal OBS Studio installation, the installer detects OBS automatically and the user does not choose plugin folders. It installs to the Windows OBS third-party plugin location under `C:\ProgramData\obs-studio\plugins`. If standard OBS is not found, it offers a dedicated OBS Portable path and validates `bin\64bit\obs64.exe` before copying files.
 
-The v0.1.3 installer uses a modern light/dark-adaptive Windows wizard, branded gamepad artwork, a clear OBS detection summary, default-control preview, and an actionable OBS-running check. It offers **Launch OBS Studio and open Tools > Gamepad Hotkeys** on Finish. See [docs/INSTALLER.md](docs/INSTALLER.md).
+The v0.1.5 installer uses a modern light/dark-adaptive Windows wizard, the repository's authored `gamepad.jpg` artwork, a clear OBS detection summary, default-control preview, and an actionable OBS-running check. The artwork is embedded image-only: the build pipeline does not draw duplicate text or branding over the image. It offers **Launch OBS Studio and open Tools > Gamepad Hotkeys** on Finish. See [docs/INSTALLER.md](docs/INSTALLER.md).
 
 > Windows SmartScreen / Unknown Publisher is separate from installer UX. Production releases need Authenticode code signing to remove that publisher warning. The GitHub workflow supports optional certificate secrets and signs both the plugin DLL and installer when configured.
 
