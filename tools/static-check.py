@@ -6,6 +6,7 @@ required = [
     'CMakeLists.txt','CMakePresets.json','buildspec.json',
     'src/plugin-main.cpp','src/xinput-backend.cpp','src/directinput-backend.cpp',
     'src/gamepad-manager.cpp','src/obs-hotkey-router.cpp','src/config.cpp','src/gamepad-dialog.cpp',
+    'src/gamepad-icons.hpp','src/gamepad-icons.cpp','data/licenses/LUCIDE-ISC.txt',
     '.github/workflows/build-windows.yml',
     'installer/obs-gamepad-hotkeys.iss','scripts/build-installer.ps1','scripts/ensure-inno.ps1',
     'BUILD-INSTALLER.cmd','BUILD-INSTALLER-AND-RUN.cmd'
@@ -34,6 +35,9 @@ for forbidden in ('SendInput','keybd_event','RegisterHotKey'):
 for required_api in ('obs_hotkey_trigger_routed_callback','OBS_TASK_UI','DISCL_BACKGROUND','DISCL_NONEXCLUSIVE'):
     if required_api not in all_src:
         raise SystemExit(f'Required native routing primitive missing: {required_api}')
+for visual_primitive in ('lucideGamepadIcon','gamepadControlIcon','gamepad-2'):
+    if visual_primitive not in all_src:
+        raise SystemExit(f'Required visual primitive missing: {visual_primitive}')
 
 installer = (root / 'installer/obs-gamepad-hotkeys.iss').read_text(encoding='utf-8')
 for required_text in ('{commonappdata}\\obs-studio\\plugins', 'obs-plugins\\64bit', 'bin\\64bit\\obs64.exe', 'PrepareToInstall'):
