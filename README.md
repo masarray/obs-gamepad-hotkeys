@@ -2,7 +2,7 @@
 
 Native Windows gamepad input for OBS Studio. The plugin reads controllers directly and routes button press/release events to OBS's registered hotkey callbacks — no JoyToKey, keyboard emulation, or foreground-window dependency.
 
-> **Status:** v0.1.0 MVP source. Windows x64. XInput + DirectInput. Static validation is included/completed for the generated source, but a Windows/Visual Studio binary build still needs to run on Windows or GitHub Actions before calling the release hardware-tested.
+> **Status:** v0.1.3 preview. Windows x64. XInput + DirectInput. Windows builds, the manual ZIP, and the Smart Installer are validated by GitHub Actions; physical-controller behavior should still be exercised on the controllers/OBS versions targeted by each public release.
 
 ## Why this exists
 
@@ -36,6 +36,9 @@ The plugin intentionally uses **non-exclusive** controller access. It does not c
 - `Any Controller` mappings or mapping to a specific detected device.
 - Persistent JSON configuration under the OBS module config path.
 - Mapping capture temporarily suspends dispatch and releases active hold actions to prevent accidental scene/recording changes.
+- Smart recording actions: `B` defaults to Pause/Resume Recording and `START` defaults to Start/Stop Recording.
+- Theme-aware Lucide UI icons plus high-DPI controller badges for A/B/X/Y, shoulders, sticks, D-pad, START/BACK and DirectInput buttons.
+- Compact Lucide `trash-2` mapping removal action, vertically and horizontally centered in its table cell.
 
 ## Input names
 
@@ -49,16 +52,15 @@ LT/RT become digital buttons at the standard XInput trigger threshold.
 
 `BUTTON_1` through `BUTTON_128`, plus the first POV hat as `DPAD_UP`, `DPAD_DOWN`, `DPAD_LEFT`, `DPAD_RIGHT`.
 
-
 ## Easiest install for normal users
 
-GitHub Actions now builds a smart Windows installer:
+GitHub Actions builds a branded smart Windows installer:
 
 `OBS-Gamepad-Hotkeys-Setup-v<version>.exe`
 
 For a normal OBS Studio installation, the installer detects OBS automatically and the user does not choose plugin folders. It installs to the Windows OBS third-party plugin location under `C:\ProgramData\obs-studio\plugins`. If standard OBS is not found, it offers a dedicated OBS Portable path and validates `bin\64bit\obs64.exe` before copying files.
 
-The installer also checks that OBS is closed before updating plugin files and offers **Launch OBS Studio** on Finish. See [docs/INSTALLER.md](docs/INSTALLER.md).
+The v0.1.3 installer uses a modern light/dark-adaptive Windows wizard, branded gamepad artwork, a clear OBS detection summary, default-control preview, and an actionable OBS-running check. It offers **Launch OBS Studio and open Tools > Gamepad Hotkeys** on Finish. See [docs/INSTALLER.md](docs/INSTALLER.md).
 
 > Windows SmartScreen / Unknown Publisher is separate from installer UX. Production releases need Authenticode code signing to remove that publisher warning. The GitHub workflow supports optional certificate secrets and signs both the plugin DLL and installer when configured.
 
@@ -72,7 +74,7 @@ BUILD-INSTALLER-AND-RUN.cmd
 
 It performs the complete local path:
 
-`bootstrap -> CMake configure -> plugin build -> installer build -> launch installer`
+`bootstrap -> CMake configure -> plugin build -> branded installer build -> launch installer`
 
 So the installer you test locally is the same installer format an end user downloads from GitHub Releases. Inno Setup is bootstrapped automatically as a local build tool and its download is SHA-256 verified.
 
@@ -134,7 +136,7 @@ Create a distributable ZIP after building:
 
 ## GitHub Actions
 
-Push this repository to GitHub. `.github/workflows/build-windows.yml` configures and builds the plugin, creates both the manual ZIP and smart installer EXE, generates SHA-256 files, and uploads them as Windows artifacts. A `v*` tag also publishes the files to a GitHub Release.
+`.github/workflows/build-windows.yml` validates and builds the plugin, creates both the manual ZIP and Smart Installer EXE, generates SHA-256 files, and uploads them as Windows artifacts. A `v*` tag also publishes the files to a GitHub Release.
 
 The build baseline currently follows the dependency versions/hashes in the official OBS plugin template (`OBS Studio 31.1.1` build dependency). Runtime validation against the OBS versions you intend to publish for should be part of the release test matrix.
 
@@ -143,11 +145,11 @@ The build baseline currently follows the dependency versions/hashes in the offic
 1. Connect the controller.
 2. Start OBS.
 3. Open **Tools -> Gamepad Hotkeys**.
-4. Click **Add Mapping**.
-5. Select `Any Controller` or a specific controller.
-6. Click **Listen** and press one gamepad button.
-7. Search/select an OBS action.
-8. Save.
+4. Fresh installs already have `B -> Pause/Resume Recording` and `START -> Start/Stop Recording`.
+5. To add another mapping, click **Add Mapping**.
+6. Select `Any Controller` or a specific controller.
+7. Click **Listen** and press one gamepad button.
+8. Search/select an OBS action and save.
 9. Put another application or game in the foreground and test the mapping.
 
 ## Architecture
@@ -163,10 +165,10 @@ Persistent config never stores that runtime ID. It stores a stable identity deri
 - Windows only.
 - One-button mappings only. Two-button chords, long-press, and double-press are planned for P1.
 - DirectInput currently maps buttons + first POV hat, not arbitrary analog axes.
-- Duplicate filtering between XInput and DirectInput currently skips obvious product names containing `Xbox` or `XInput`; a VID/PID/IG_ based detector is planned for P1.
+- Duplicate filtering between XInput and DirectInput is still heuristic; stronger VID/PID/IG_ detection is planned for P1.
 - No haptic feedback.
 - No per-OBS-profile mapping layer yet; configuration is plugin-global.
-- Windows binary has not been compiled inside this Linux-based generation environment. Use the included Windows build workflow before release.
+- CI validates Windows compilation and installer packaging; release QA should still include physical gamepad tests and the intended OBS runtime versions.
 
 ## Reliability rules in the implementation
 
@@ -178,9 +180,3 @@ Persistent config never stores that runtime ID. It stores a stable identity deri
 - OBS callbacks are queued to `OBS_TASK_UI`.
 - Hold-state releases are forced on mapping edits/listen mode/device removal.
 - Hotkey registry changes release active hold state before runtime IDs are replaced.
-
-## License
-
-GPL-2.0-or-later. This repository is intended to remain open source and compatible with the licensing expectations of an OBS plugin linking against libobs.
-
-Windows XInput and DirectInput are system APIs; the project does not redistribute JoyToKey or controller drivers.
