@@ -7,6 +7,11 @@
 
 namespace ogh {
 
+inline constexpr char kSmartToggleRecordingPause[] = "smart:toggle-recording-pause";
+inline constexpr char kSmartToggleRecording[] = "smart:toggle-recording";
+inline constexpr char kSmartToggleRecordingPauseDisplay[] = "Smart: Toggle Pause / Resume Recording";
+inline constexpr char kSmartToggleRecordingDisplay[] = "Smart: Toggle Start / Stop Recording";
+
 struct DeviceInfo {
     std::string key;
     std::string name;
