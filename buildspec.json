@@ -30,7 +30,7 @@
   },
   "name": "obs-gamepad-hotkeys",
   "displayName": "OBS Gamepad Hotkeys",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "author": "Mas Ari / Open Source Contributors",
   "website": "https://github.com/masarray/obs-gamepad-hotkeys",
   "email": "",
