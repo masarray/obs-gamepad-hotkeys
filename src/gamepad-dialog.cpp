@@ -111,7 +111,7 @@ GamepadDialog::GamepadDialog(GamepadManager &manager, ObsHotkeyRouter &router, Q
     root->addWidget(table_, 1);
 
     auto *hint = new QLabel(
-        "Defaults: B toggles Pause/Resume Recording and START toggles Start/Stop Recording. Restore Defaults repairs these controls without removing your other mappings.",
+        "Defaults: B toggles Pause/Resume Recording and START toggles Start/Stop Recording. Optional OBS integrations such as ArZoom appear automatically in Add Mapping when installed.",
         this);
     hint->setWordWrap(true);
     root->addWidget(hint);
@@ -256,6 +256,15 @@ void GamepadDialog::addMapping()
     router_.refreshHotkeys();
     const auto hotkeys = router_.hotkeys();
 
+    const HotkeyInfo *arzoomHotkey = nullptr;
+    size_t genericHotkeyCount = 0;
+    for (const HotkeyInfo &hotkey : hotkeys) {
+        if (hotkey.name == kArZoomToggleHotkeyName)
+            arzoomHotkey = &hotkey;
+        else
+            ++genericHotkeyCount;
+    }
+
     QDialog dialog(this);
     dialog.setWindowTitle("Add Gamepad Mapping");
     dialog.setWindowIcon(lucideGamepadIcon(dialog.palette()));
@@ -300,10 +309,28 @@ void GamepadDialog::addMapping()
 
     actionCombo->addItem(kSmartToggleRecordingPauseDisplay, kSmartToggleRecordingPause);
     actionCombo->addItem(kSmartToggleRecordingDisplay, kSmartToggleRecording);
-    if (!hotkeys.empty())
+
+    // ArZoom already exposes its toggle as a native OBS frontend hotkey.
+    // Surface it as a first-class integration but keep the actual mapping tied
+    // to ArZoom's runtime/stable hotkey identity. This means no keyboard
+    // binding, IPC, or direct dependency between the two plugins is needed.
+    if (arzoomHotkey) {
+        actionCombo->insertSeparator(actionCombo->count());
+        const int arzoomIndex = actionCombo->count();
+        actionCombo->addItem(kArZoomToggleDisplay,
+                             QString::fromStdString(arzoomHotkey->stableKey));
+        actionCombo->setItemData(
+            arzoomIndex,
+            QStringLiteral("Directly triggers ArZoom's native OBS zoom toggle. No keyboard shortcut is required."),
+            Qt::ToolTipRole);
+    }
+
+    if (genericHotkeyCount > 0)
         actionCombo->insertSeparator(actionCombo->count());
 
     for (const HotkeyInfo &hotkey : hotkeys) {
+        if (hotkey.name == kArZoomToggleHotkeyName)
+            continue;
         actionCombo->addItem(QString::fromStdString(hotkey.display),
                              QString::fromStdString(hotkey.stableKey));
     }
