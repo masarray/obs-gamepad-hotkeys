@@ -12,6 +12,12 @@ inline constexpr char kSmartToggleRecording[] = "smart:toggle-recording";
 inline constexpr char kSmartToggleRecordingPauseDisplay[] = "Smart: Toggle Pause / Resume Recording";
 inline constexpr char kSmartToggleRecordingDisplay[] = "Smart: Toggle Start / Stop Recording";
 
+// ArZoom registers one global OBS frontend hotkey under this stable internal
+// name. Gamepad Hotkeys can route directly to that callback, so users do not
+// need to assign a keyboard shortcut just to control ArZoom from a gamepad.
+inline constexpr char kArZoomToggleHotkeyName[] = "arzoom.toggle";
+inline constexpr char kArZoomToggleDisplay[] = "ArZoom: Toggle Zoom In / Out";
+
 struct DeviceInfo {
     std::string key;
     std::string name;
