@@ -8,7 +8,7 @@ No JoyToKey. No keyboard emulation. No extra background companion app.
 
 ![OBS Gamepad Hotkeys](gamepad.jpg)
 
-> **Current release:** v0.1.5 public preview · Windows 10/11 x64 · XInput + DirectInput
+> **Current release:** v0.1.6 public preview · Windows 10/11 x64 · XInput + DirectInput
 
 ## What does it do?
 
@@ -21,9 +21,25 @@ For example:
 | **B** | Pause / Resume Recording |
 | **START** | Start / Stop Recording |
 
-You can also map buttons to scenes, source visibility, mute/unmute, replay buffer actions, and other hotkeys registered in OBS.
+You can also map buttons to scenes, source visibility, mute/unmute, replay buffer actions, other registered OBS hotkeys, and compatible OBS plugins.
 
 The plugin is designed for the common situation where **your game has focus but you still want the controller to operate OBS**.
+
+---
+
+## New in v0.1.6 — ArZoom from your gamepad
+
+If [ArZoom for OBS](https://github.com/masarray/arzoom-follow-obs) is installed, Gamepad Hotkeys detects its native OBS action automatically.
+
+Open **Tools → Gamepad Hotkeys → Add Mapping**, press **Listen**, press the controller button you want, then choose:
+
+**ArZoom: Toggle Zoom In / Out**
+
+Press the mapped button once to zoom in and follow the mouse. Press it again to return smoothly to the normal view.
+
+You do **not** need JoyToKey or a keyboard shortcut for this integration. Gamepad Hotkeys routes ArZoom's registered OBS hotkey callback natively.
+
+See the [ArZoom gamepad guide](docs/ARZOOM.md) for the complete beginner setup.
 
 ---
 
@@ -31,10 +47,10 @@ The plugin is designed for the common situation where **your game has focus but 
 
 ### 1. Download the installer
 
-Go to [**Latest Release**](https://github.com/masarray/obs-gamepad-hotkeys/releases/latest) and download the file named like:
+Go to [**Latest Release**](https://github.com/masarray/obs-gamepad-hotkeys/releases/latest) and download:
 
 ```text
-OBS-Gamepad-Hotkeys-Setup-v0.1.5.exe
+OBS-Gamepad-Hotkeys-Setup-v0.1.6.exe
 ```
 
 For normal users, use the **Setup EXE**, not the ZIP.
@@ -78,9 +94,9 @@ That is all. Put your game/app back in the foreground and test the button.
 
 ## Windows Defender / SmartScreen: what should I expect?
 
-The current **v0.1.5 public release is unsigned**, so Windows may show **“Windows protected your PC”** or **“Unknown Publisher”** when you run the installer.
+Public preview builds may show **“Windows protected your PC”** or **“Unknown Publisher”** when the installer is not yet signed with a trusted public code-signing identity.
 
-That warning is about Windows reputation/signing status; by itself it does **not** mean Windows found malware. Microsoft Defender SmartScreen evaluates both publisher reputation and file reputation, and unsigned files start without transferable publisher reputation.
+That warning is about Windows reputation/signing status; by itself it does **not** mean Windows found malware.
 
 ### Safest way to install
 
@@ -94,12 +110,12 @@ That warning is about Windows reputation/signing status; by itself it does **not
 Download the `.sha256` file next to the installer, then run PowerShell in your Downloads folder:
 
 ```powershell
-Get-FileHash .\OBS-Gamepad-Hotkeys-Setup-v0.1.5.exe -Algorithm SHA256
+Get-FileHash .\OBS-Gamepad-Hotkeys-Setup-v0.1.6.exe -Algorithm SHA256
 ```
 
 Compare the displayed hash with the value in the published `.sha256` file.
 
-The build workflow already supports Authenticode signing when a trusted signing certificate is configured. A future signed release will provide a stronger publisher identity signal to Windows.
+The build workflow supports Authenticode signing when a trusted signing certificate is configured.
 
 ---
 
@@ -118,6 +134,14 @@ The build workflow already supports Authenticode signing when a trusted signing 
 - Leave the Gamepad Hotkeys window open for a moment; generic DirectInput devices are rescanned automatically.
 - Try **Any Controller** first.
 
+### ArZoom does not appear in the action list
+
+- Confirm ArZoom is installed and visible in OBS.
+- Add **ArZoom - Smart Mouse Zoom** to a Display Capture source.
+- Restart OBS if ArZoom was just installed.
+- Open **Add Mapping** again; the OBS action list refreshes automatically.
+- If needed, click the refresh icon in the Gamepad Hotkeys window.
+
 ### The game reacts when OBS reacts
 
 That is expected. Input is non-exclusive so the plugin does not take control away from the game. Use a button the game does not need for that moment.
@@ -128,7 +152,7 @@ Pause/Resume only applies while a recording is active. Press **START** first to 
 
 ### My OBS action is not in the list
 
-Click **Refresh OBS Actions**. The plugin reads the hotkeys currently registered by OBS and compatible OBS plugins.
+Click the **Refresh OBS Actions** icon. The plugin reads the hotkeys currently registered by OBS and compatible OBS plugins.
 
 ### Still stuck?
 
@@ -176,6 +200,12 @@ OBS Gamepad Hotkeys shortens that to:
 Gamepad → OBS Gamepad Hotkeys → OBS action
 ```
 
+For ArZoom:
+
+```text
+Gamepad → OBS Gamepad Hotkeys → ArZoom native OBS action
+```
+
 That means:
 
 - no keyboard shortcut injection
@@ -194,6 +224,7 @@ That means:
 - Press **and** release forwarding for hold-style OBS actions such as push-to-talk.
 - Automatic device rescan and held-button release on disconnect.
 - Native OBS hotkey/action enumeration.
+- **First-class ArZoom Toggle Zoom In / Out integration.**
 - **Listen** mode for learning a controller button.
 - `Any Controller` or device-specific mappings.
 - Persistent mapping configuration.
@@ -276,6 +307,7 @@ The plugin intentionally does not use `SendInput` or virtual keyboard shortcuts.
 
 See:
 
+- [ArZoom integration](docs/ARZOOM.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Installer](docs/INSTALLER.md)
 - [Test plan](docs/TEST_PLAN.md)
