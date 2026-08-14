@@ -1,14 +1,34 @@
 /build*/
 /.deps/
 /.cache/
+/dist/
+/.tools/
+
+# IDE / editor state
+.vs/
+.vscode/
+.idea/
 *.user
 *.suo
 *.VC.db
-.vs/
-.idea/
+CMakeUserPresets.json
+compile_commands.json
+
+# OS / local output
 .DS_Store
+Thumbs.db
+*.log
 *.zip
-/dist/
-/.tools/
+
+# Local secrets / signing material
+.env
+.env.local
+.env.*.local
+*.pfx
+*.p12
+*.key
+*.pem
+
+# Generated installer files
 /installer/build.generated.iss
 /installer/generated/
