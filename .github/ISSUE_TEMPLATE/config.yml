@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Beginner setup and troubleshooting
+    url: https://masarray.github.io/obs-gamepad-hotkeys/
+    about: Start here for installation, mapping, SmartScreen guidance, and common questions.
+  - name: Security policy
+    url: https://github.com/masarray/obs-gamepad-hotkeys/blob/main/SECURITY.md
+    about: Do not post vulnerability details in a public issue. Follow the private reporting guidance here.

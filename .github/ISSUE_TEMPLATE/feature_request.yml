@@ -1,0 +1,53 @@
+name: Feature request
+description: Suggest a user workflow or compatibility improvement
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem first. Implementation ideas are welcome, but the project prioritizes native OBS integration, low complexity, and predictable controller behavior.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Explain the real workflow that is difficult or impossible today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired behavior
+      description: Describe what the user should be able to do from the gamepad and what OBS should do in response.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-workaround
+    attributes:
+      label: Current workaround
+      description: Optional. For example JoyToKey, keyboard shortcuts, another OBS plugin, or manual OBS interaction.
+
+  - type: input
+    id: controller
+    attributes:
+      label: Controller or input type
+      description: Optional if the request is controller-specific.
+      placeholder: Xbox / XInput, generic DirectInput, etc.
+
+  - type: textarea
+    id: obs-integration
+    attributes:
+      label: Related OBS action or plugin
+      description: Optional. Include the OBS action/plugin name if this is an integration request.
+
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Project principles
+      options:
+        - label: I understand the project avoids keyboard emulation when a native OBS route is available.
+          required: true
+        - label: I searched existing issues and pull requests for a similar request.
+          required: true

@@ -10,13 +10,32 @@ required = [
     '.github/workflows/build-windows.yml',
     'installer/obs-gamepad-hotkeys.iss','scripts/build-installer.ps1','scripts/ensure-inno.ps1',
     'scripts/new-installer-branding.ps1','gamepad.jpg',
-    'BUILD-INSTALLER.cmd','BUILD-INSTALLER-AND-RUN.cmd'
+    'BUILD-INSTALLER.cmd','BUILD-INSTALLER-AND-RUN.cmd',
+    'CONTRIBUTING.md','SECURITY.md','SUPPORT.md','CODE_OF_CONDUCT.md',
+    '.github/CODEOWNERS','.github/PULL_REQUEST_TEMPLATE.md',
+    '.github/ISSUE_TEMPLATE/bug_report.yml',
+    '.github/ISSUE_TEMPLATE/feature_request.yml',
+    '.github/ISSUE_TEMPLATE/config.yml'
 ]
 for rel in required:
     if not (root / rel).exists():
         raise SystemExit(f'Missing required file: {rel}')
 for rel in ('buildspec.json','CMakePresets.json'):
     json.loads((root / rel).read_text(encoding='utf-8'))
+
+# Release EXE/ZIP SHA-256 files and Git history are the integrity sources. A
+# hand-maintained source hash manifest silently becomes false as the tree moves.
+if (root / 'SOURCE_MANIFEST.txt').exists():
+    raise SystemExit('Do not commit a manual SOURCE_MANIFEST.txt; use Git history and release SHA-256 manifests')
+
+# Signing material and private keys must never be committed even if a local
+# ignore rule is bypassed. Public source/config files should not need these
+# private-key extensions.
+for pattern in ('*.pfx', '*.p12', '*.key', '*.pem'):
+    matches = [p for p in root.rglob(pattern) if '.git' not in p.parts]
+    if matches:
+        raise SystemExit(f'Potential signing secret/private key committed: {matches[0].relative_to(root)}')
+
 for p in sorted((root/'src').glob('*.[ch]pp')):
     s = p.read_text(encoding='utf-8')
     t = re.sub(r'/\*.*?\*/', '', s, flags=re.S)
