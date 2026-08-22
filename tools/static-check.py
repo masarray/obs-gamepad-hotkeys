@@ -9,7 +9,7 @@ required = [
     'src/gamepad-icons.hpp','src/gamepad-icons.cpp','data/licenses/LUCIDE-ISC.txt',
     '.github/workflows/build-windows.yml',
     'installer/obs-gamepad-hotkeys.iss','scripts/build-installer.ps1','scripts/ensure-inno.ps1',
-    'scripts/new-installer-branding.ps1','gamepad.jpg',
+    'scripts/package.ps1','scripts/new-installer-branding.ps1','gamepad.jpg',
     'BUILD-INSTALLER.cmd','BUILD-INSTALLER-AND-RUN.cmd',
     'CONTRIBUTING.md','SECURITY.md','SUPPORT.md','CODE_OF_CONDUCT.md',
     '.github/CODEOWNERS','.github/PULL_REQUEST_TEMPLATE.md',
@@ -66,9 +66,40 @@ for restore_primitive in ('restoreDefaultMappings', 'Other custom mappings will 
         raise SystemExit(f'Restore-defaults UX primitive missing: {restore_primitive}')
 
 installer = (root / 'installer/obs-gamepad-hotkeys.iss').read_text(encoding='utf-8')
-for required_text in ('{commonappdata}\\obs-studio\\plugins', 'obs-plugins\\64bit', 'bin\\64bit\\obs64.exe', 'PrepareToInstall'):
+for required_text in (
+    '{commonappdata}\\obs-studio\\plugins',
+    'obs-plugins\\64bit',
+    'data\\obs-plugins\\{#MyPluginName}',
+    'bin\\64bit\\obs64.exe',
+    'OBS Studio Portable / custom OBS folder',
+    'GetObsLaunchParameters',
+    "Result := '--portable'",
+    'PrepareToInstall'
+):
     if required_text not in installer:
         raise SystemExit(f'Installer routing primitive missing: {required_text}')
+
+# Regression for v0.1.6: detecting Standard OBS must never short-circuit the
+# wizard and prevent a user from selecting another Portable OBS instance.
+if re.search(
+    r'if\s+AutoDetectedStandard\s+then\s+begin\s*SelectedInstallMode\s*:=\s*InstallModeStandard;\s*Exit;',
+    installer,
+    flags=re.I | re.S,
+):
+    raise SystemExit('Portable regression: Standard OBS detection still bypasses target selection')
+
+package = (root / 'scripts/package.ps1').read_text(encoding='utf-8')
+for required_text in (
+    "'obs-plugins\\64bit'",
+    '"data\\obs-plugins\\$PluginName"',
+    'windows-x64-portable.zip',
+    'INSTALL-PORTABLE.txt',
+    'Portable package regression'
+):
+    if required_text not in package:
+        raise SystemExit(f'Portable package primitive missing: {required_text}')
+if '$PluginStage = Join-Path $Stage $PluginName' in package:
+    raise SystemExit('Portable package regression: legacy plugin-bundle staging returned')
 
 branding = (root / 'scripts/new-installer-branding.ps1').read_text(encoding='utf-8')
 for required_text in ('gamepad.jpg', 'Draw-ImageContain', 'Draw-ImageCover', 'HighQualityBicubic'):
