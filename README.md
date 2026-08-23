@@ -8,7 +8,7 @@ No JoyToKey. No keyboard emulation. No extra background companion app.
 
 ![OBS Gamepad Hotkeys](gamepad.jpg)
 
-> **Current release:** v0.1.6 public preview · Windows 10/11 x64 · XInput + DirectInput
+> **Current release:** v0.1.7 public preview · Windows 10/11 x64 · Standard + Portable OBS · XInput + DirectInput
 
 ## What does it do?
 
@@ -27,7 +27,22 @@ The plugin is designed for the common situation where **your game has focus but 
 
 ---
 
-## New in v0.1.6 — ArZoom from your gamepad
+## New in v0.1.7 — reliable OBS Portable support
+
+v0.1.7 fixes the installation path that could make the plugin invisible in **Tools** when using OBS Portable.
+
+- The Smart Installer now **always lets you choose** between Standard OBS and Portable/custom OBS, even when a standard OBS installation is also present on the same PC.
+- Portable installs place the DLL in `<OBS root>\obs-plugins\64bit`, never next to `obs64.exe` in `bin\64bit`.
+- Portable module data goes to `<OBS root>\data\obs-plugins\obs-gamepad-hotkeys`.
+- The manual Portable ZIP is now **direct-extractable into the OBS root folder**.
+- CI extracts and validates the Portable ZIP before any release can be published, preventing the old layout from returning.
+- Setup launches a selected Portable target using `--portable` after installation.
+
+The runtime gamepad engine is intentionally unchanged in this release; this is a focused reliability and distribution fix.
+
+---
+
+## ArZoom from your gamepad
 
 If [ArZoom for OBS](https://github.com/masarray/arzoom-follow-obs) is installed, Gamepad Hotkeys detects its native OBS action automatically.
 
@@ -45,25 +60,22 @@ See the [ArZoom gamepad guide](docs/ARZOOM.md) for the complete beginner setup.
 
 ## Install and use it in about 2 minutes
 
-### 1. Download the installer
+### Recommended: Smart Installer
 
 Go to [**Latest Release**](https://github.com/masarray/obs-gamepad-hotkeys/releases/latest) and download:
 
 ```text
-OBS-Gamepad-Hotkeys-Setup-v0.1.6.exe
+OBS-Gamepad-Hotkeys-Setup-v0.1.7.exe
 ```
 
-For normal users, use the **Setup EXE**, not the ZIP.
+Close OBS and run Setup. Setup presents the target explicitly:
 
-### 2. Close OBS and run Setup
+- **Standard OBS Studio** — system-wide plugin installation.
+- **OBS Studio Portable / custom OBS folder** — select the OBS root containing `bin`, `data`, and `obs-plugins`.
 
-The Smart Installer detects a standard OBS Studio installation automatically. If you use OBS Portable, Setup asks for that OBS folder and validates it before installing.
+The Ready page shows the exact OBS location and plugin target before files are copied.
 
-You do **not** need to choose DLL folders or copy plugin files manually.
-
-### 3. Open OBS
-
-Open:
+After installation, open:
 
 **Tools → Gamepad Hotkeys**
 
@@ -73,6 +85,27 @@ Fresh installs already include:
 - **START** → Start / Stop Recording
 
 Try **START** to begin recording, then **B** to pause and resume.
+
+### Manual OBS Portable ZIP
+
+Download:
+
+```text
+obs-gamepad-hotkeys-0.1.7-windows-x64-portable.zip
+```
+
+Close OBS, then extract the **contents** of the ZIP directly into the OBS Portable root folder — the folder that contains `bin`, `data`, and `obs-plugins`.
+
+After extraction these paths must exist:
+
+```text
+<OBS root>\obs-plugins\64bit\obs-gamepad-hotkeys.dll
+<OBS root>\data\obs-plugins\obs-gamepad-hotkeys\locale\en-US.ini
+```
+
+Do **not** place `obs-gamepad-hotkeys.dll` in `<OBS root>\bin\64bit`; that folder contains the OBS executable and is not the third-party plugin directory.
+
+The ZIP also contains `INSTALL-PORTABLE.txt` with the same recovery instructions.
 
 ---
 
@@ -110,7 +143,7 @@ That warning is about Windows reputation/signing status; by itself it does **not
 Download the `.sha256` file next to the installer, then run PowerShell in your Downloads folder:
 
 ```powershell
-Get-FileHash .\OBS-Gamepad-Hotkeys-Setup-v0.1.6.exe -Algorithm SHA256
+Get-FileHash .\OBS-Gamepad-Hotkeys-Setup-v0.1.7.exe -Algorithm SHA256
 ```
 
 Compare the displayed hash with the value in the published `.sha256` file.
@@ -123,9 +156,29 @@ The build workflow supports Authenticode signing when a trusted signing certific
 
 ### “Tools → Gamepad Hotkeys” is missing
 
-- Close and reopen OBS after installation.
-- Make sure you installed the plugin into the OBS installation you actually run.
-- Re-run the Smart Installer; it shows the OBS location it detected before installation.
+If the menu is missing, the plugin module was not loaded. Controller detection is **not** required for the menu to appear.
+
+For OBS Portable verify:
+
+```text
+<OBS root>\obs-plugins\64bit\obs-gamepad-hotkeys.dll
+<OBS root>\data\obs-plugins\obs-gamepad-hotkeys\locale\en-US.ini
+```
+
+Then restart the exact OBS instance you installed into. In OBS, open **Help → Log Files → View Current Log** and search for:
+
+```text
+Gamepad Hotkeys
+obs-gamepad-hotkeys
+```
+
+A successful module load writes:
+
+```text
+[Gamepad Hotkeys] plugin loaded
+```
+
+If that line is absent, include the nearby module-loading error when opening an issue.
 
 ### Listen does not react to my controller
 
@@ -159,12 +212,14 @@ Click the **Refresh OBS Actions** icon. The plugin reads the hotkeys currently r
 Open a [GitHub Issue](https://github.com/masarray/obs-gamepad-hotkeys/issues) and include:
 
 - OBS version
+- Standard or Portable OBS
 - controller model
 - whether **Tools → Gamepad Hotkeys** appears
+- the `Gamepad Hotkeys` / `obs-gamepad-hotkeys` lines from the OBS log
 - whether **Listen** detects the button
 - the OBS action you tried to map
 
-Those five details usually make the problem much faster to diagnose.
+Those details distinguish installation/loading failures from controller-input failures quickly.
 
 ---
 
@@ -230,7 +285,8 @@ That means:
 - Persistent mapping configuration.
 - Smart recording actions for Pause/Resume and Start/Stop.
 - Theme-aware Lucide UI icons and high-DPI gamepad button badges.
-- Branded Smart Installer for standard and portable OBS installations.
+- Multi-instance-aware Smart Installer for standard and portable OBS installations.
+- Direct-extract Portable ZIP with automated release-layout validation.
 
 ## Current limitations
 
@@ -295,7 +351,7 @@ For OBS Portable:
 .\scripts\install-local.ps1 -PortableRoot "D:\OBS-Studio"
 ```
 
-Create the manual ZIP:
+Create the direct-extract Portable ZIP:
 
 ```powershell
 .\scripts\package.ps1
@@ -304,6 +360,8 @@ Create the manual ZIP:
 ### Engineering notes
 
 The plugin intentionally does not use `SendInput` or virtual keyboard shortcuts. Controller polling runs on a worker thread, OBS execution is marshalled to `OBS_TASK_UI`, and the final action is routed through OBS's registered hotkey callback.
+
+The project currently builds against OBS 31.1.1 as its compatibility baseline rather than chasing the newest host for a packaging-only fix. OBS 32.2.2 is the current upstream release as of August 2026; runtime compatibility should still be verified through the release test matrix on representative supported OBS versions.
 
 See:
 
