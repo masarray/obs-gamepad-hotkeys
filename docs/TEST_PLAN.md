@@ -1,13 +1,38 @@
 # Release Test Plan
 
-A release should not be tagged until this matrix passes on a real Windows machine.
+A release should not be tagged until the P0 matrix passes on a real Windows machine. CI additionally enforces source integrity, build success, installer compilation, and Portable ZIP layout.
 
-## P0 smoke tests
+## P0 installation and module-loading tests
 
 | Test | Expected |
 |---|---|
-| OBS starts with plugin installed | No crash; `Tools -> Gamepad Hotkeys` exists |
+| Standard OBS only | Setup offers Standard + Portable/custom target; Standard is preselected when detected |
+| Standard OBS + Portable OBS on same PC | Setup still exposes Portable/custom target; Standard detection does not short-circuit the wizard |
+| Select Portable root | Setup validates `<root>\bin\64bit\obs64.exe` |
+| Install to Portable root | DLL lands at `<root>\obs-plugins\64bit\obs-gamepad-hotkeys.dll` |
+| Install to Portable root | Data lands at `<root>\data\obs-plugins\obs-gamepad-hotkeys\...` |
+| Finish Portable install | OBS launches with `--portable`; `Tools -> Gamepad Hotkeys` exists |
+| Manual Portable ZIP | Extract directly to OBS root; `Tools -> Gamepad Hotkeys` exists after restart |
+| Wrong legacy path check | No plugin DLL is shipped or documented under `<root>\bin\64bit` |
+| OBS starts with plugin installed | No crash; OBS log contains `[Gamepad Hotkeys] plugin loaded` |
 | Open plugin with no controller | UI opens; connected count is 0 |
+
+## CI release-layout tests
+
+The Windows build job must expand the final Portable ZIP and verify:
+
+- `obs-plugins\64bit\obs-gamepad-hotkeys.dll` exists.
+- `data\obs-plugins\obs-gamepad-hotkeys\locale\en-US.ini` exists.
+- `INSTALL-PORTABLE.txt` exists.
+- `bin\64bit\obs-gamepad-hotkeys.dll` does not exist.
+- `obs-gamepad-hotkeys\bin\64bit\obs-gamepad-hotkeys.dll` does not exist.
+
+These checks exist specifically to prevent a recurrence of the v0.1.6 package layout that could be extracted into the wrong OBS folder structure.
+
+## P0 controller smoke tests
+
+| Test | Expected |
+|---|---|
 | Connect Xbox-compatible controller before OBS | XInput device appears |
 | Connect generic DirectInput controller before OBS | DirectInput device appears |
 | Add mapping with Listen | Pressed button is captured once |
@@ -44,6 +69,18 @@ At minimum test:
 - One PlayStation-family controller as exposed by Windows/driver stack.
 - Two controllers connected simultaneously.
 
+## OBS host matrix
+
+For a public Windows release, test at least:
+
+- Project build baseline (currently OBS 31.1.1).
+- Current stable OBS release.
+- Standard installed OBS.
+- Official Windows ZIP running with `portable_mode.txt`.
+- Official Windows ZIP launched with `--portable` and no marker file.
+
+The project intentionally keeps the build baseline conservative unless a newer OBS API is required. A packaging-only release should not raise the minimum host version without a functional reason.
+
 ## Focus/interference tests
 
 - OBS foreground.
@@ -73,3 +110,5 @@ Target: no measurable frame/render impact and only negligible CPU delta attribut
 - Close OBS while holding mapped button.
 - Delete a source whose hotkey is mapped.
 - Corrupt `config.json`; plugin should load with empty mappings rather than crash.
+- Install Standard target, then rerun Setup and select a different Portable root; files must land only in the selected target for that run.
+- Put an old/wrong copy of the DLL under `<OBS root>\bin\64bit`; confirm the correct plugin still loads only from `obs-plugins\64bit` and document removal of the stray DLL.

@@ -80,7 +80,7 @@ Source: "{#PluginDll}"; DestDir: "{code:GetPluginBinDir}"; DestName: "{#MyPlugin
 Source: "{#PluginDataDir}\*"; DestDir: "{code:GetPluginDataDir}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Run]
-Filename: "{code:GetObsExePath}"; Description: "Launch OBS Studio and open Tools > Gamepad Hotkeys"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchObs
+Filename: "{code:GetObsExePath}"; Parameters: "{code:GetObsLaunchParameters}"; Description: "Launch OBS Studio and open Tools > Gamepad Hotkeys"; Flags: postinstall nowait skipifsilent runasoriginaluser; Check: CanLaunchObs
 
 [Code]
 const
@@ -94,6 +94,7 @@ var
   PortableRoot: string;
   SelectedInstallMode: Integer;
   AutoDetectedStandard: Boolean;
+  CommandLinePortableMode: Boolean;
 
 function IsObsRoot(const Root: string): Boolean;
 begin
@@ -189,9 +190,8 @@ begin
   P := RemoveBackslashUnlessRoot(InputPath);
 
   if FileExists(AddBackslash(P) + 'obs64.exe') then begin
-    if CompareText(ExtractFileName(P), '64bit') = 0 then begin
+    if CompareText(ExtractFileName(P), '64bit') = 0 then
       P := ExtractFileDir(ExtractFileDir(P));
-    end;
   end;
 
   Result := RemoveBackslashUnlessRoot(P);
@@ -199,7 +199,7 @@ end;
 
 function GetPortableRoot: string;
 begin
-  if PortableRootPage <> nil then
+  if (PortableRootPage <> nil) and (PortableRootPage.Values[0] <> '') then
     PortableRoot := NormalizePortableRoot(PortableRootPage.Values[0]);
   Result := PortableRoot;
 end;
@@ -230,6 +230,14 @@ begin
     Result := '';
 end;
 
+function GetObsLaunchParameters(Param: string): string;
+begin
+  if SelectedInstallMode = InstallModePortable then
+    Result := '--portable'
+  else
+    Result := '';
+end;
+
 function CanLaunchObs: Boolean;
 begin
   Result := FileExists(GetObsExePath(''));
@@ -243,61 +251,56 @@ end;
 procedure InitializeWizard;
 var
   CommandLineRoot: string;
+  ModeDescription: string;
 begin
   WizardForm.Caption := 'OBS Gamepad Hotkeys Setup';
   WizardForm.WelcomeLabel1.Caption := 'OBS Gamepad Hotkeys';
   WizardForm.WelcomeLabel2.Caption :=
     'Native gamepad control for OBS Studio.' + #13#10 + #13#10 +
     'Map controller buttons directly to recording, scenes, audio and other OBS actions — without JoyToKey or keyboard emulation.' + #13#10 + #13#10 +
-    'Setup will detect OBS Studio and install the plugin automatically.';
+    'Setup supports both standard OBS Studio and self-contained OBS Portable installations.';
 
   SelectedInstallMode := InstallModeStandard;
   PortableRoot := '';
+  CommandLinePortableMode := False;
 
   CommandLineRoot := ExpandConstant('{param:OBSROOT|}');
-  if (CommandLineRoot <> '') and IsPortableObsRoot(NormalizePortableRoot(CommandLineRoot)) then begin
+  if CommandLineRoot <> '' then begin
     PortableRoot := NormalizePortableRoot(CommandLineRoot);
-    SelectedInstallMode := InstallModePortable;
-    AutoDetectedStandard := False;
-    Exit;
-  end;
-
-  if IsPortableObsRoot(ExpandConstant('{commonpf}\obs-studio')) then begin
-    PortableRoot := RemoveBackslashUnlessRoot(ExpandConstant('{commonpf}\obs-studio'));
-    SelectedInstallMode := InstallModePortable;
-    AutoDetectedStandard := False;
-    Exit;
-  end;
-
-  if IsPortableObsRoot(ExpandConstant('{localappdata}\Programs\obs-studio')) then begin
-    PortableRoot := RemoveBackslashUnlessRoot(ExpandConstant('{localappdata}\Programs\obs-studio'));
-    SelectedInstallMode := InstallModePortable;
-    AutoDetectedStandard := False;
-    Exit;
+    if IsObsRoot(PortableRoot) then begin
+      SelectedInstallMode := InstallModePortable;
+      AutoDetectedStandard := False;
+      CommandLinePortableMode := True;
+      Exit;
+    end;
   end;
 
   AutoDetectedStandard := DetectStandardObs;
-  if AutoDetectedStandard then begin
-    SelectedInstallMode := InstallModeStandard;
-    Exit;
-  end;
+  if AutoDetectedStandard then
+    ModeDescription := 'A standard OBS Studio installation was detected. Choose it, or select a Portable/custom OBS folder.'
+  else
+    ModeDescription := 'Choose where OBS Gamepad Hotkeys should be installed.';
 
   InstallModePage := CreateInputOptionPage(
     wpWelcome,
-    'Locate OBS Studio',
-    'OBS Studio was not found automatically.',
-    'Choose how OBS Studio is installed. Most users should choose Standard OBS Studio.',
+    'Choose OBS Studio installation',
+    'Standard and Portable OBS are supported.',
+    ModeDescription,
     True,
     False);
-  InstallModePage.Add('Standard OBS Studio');
-  InstallModePage.Add('OBS Studio Portable');
-  InstallModePage.SelectedValueIndex := 0;
+
+  if AutoDetectedStandard then
+    InstallModePage.Add('Standard OBS Studio (detected: ' + DetectedObsRoot + ')')
+  else
+    InstallModePage.Add('Standard OBS Studio (system-wide plugin)');
+  InstallModePage.Add('OBS Studio Portable / custom OBS folder');
+  InstallModePage.SelectedValueIndex := InstallModeStandard;
 
   PortableRootPage := CreateInputDirPage(
     InstallModePage.ID,
     'OBS Studio Portable folder',
-    'Select the OBS Studio portable root folder.',
-    'Choose the folder that contains bin, data, and obs-plugins. The installer verifies bin\64bit\obs64.exe before continuing.',
+    'Select the OBS Studio root folder.',
+    'Choose the folder that contains bin, data, and obs-plugins. Setup verifies bin\64bit\obs64.exe before installing.',
     False,
     '');
   PortableRootPage.Add('');
@@ -306,9 +309,8 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := False;
-  if (PortableRootPage <> nil) and (PageID = PortableRootPage.ID) then begin
+  if (PortableRootPage <> nil) and (PageID = PortableRootPage.ID) then
     Result := InstallModePage.SelectedValueIndex <> InstallModePortable;
-  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -317,15 +319,14 @@ var
 begin
   Result := True;
 
-  if (InstallModePage <> nil) and (CurPageID = InstallModePage.ID) then begin
+  if (InstallModePage <> nil) and (CurPageID = InstallModePage.ID) then
     SelectedInstallMode := InstallModePage.SelectedValueIndex;
-  end;
 
   if (PortableRootPage <> nil) and (CurPageID = PortableRootPage.ID) then begin
     Root := NormalizePortableRoot(PortableRootPage.Values[0]);
     if not IsObsRoot(Root) then begin
       MsgBox(
-        'This folder does not look like an OBS Studio portable installation.' + #13#10 + #13#10 +
+        'This folder does not look like an OBS Studio installation.' + #13#10 + #13#10 +
         'Select the OBS root folder that contains bin\64bit\obs64.exe.',
         mbError,
         MB_OK);
@@ -345,7 +346,7 @@ var
 begin
   if CurPageID = wpReady then begin
     if SelectedInstallMode = InstallModePortable then
-      InstallType := 'OBS Studio Portable'
+      InstallType := 'OBS Studio Portable / custom root'
     else
       InstallType := 'Standard OBS Studio';
 
@@ -354,12 +355,12 @@ begin
     else if DetectedObsRoot <> '' then
       ObsLocation := DetectedObsRoot
     else
-      ObsLocation := 'Standard OBS plugin location';
+      ObsLocation := 'System-wide OBS plugin location';
 
     PluginLocation := GetPluginBinDir('');
 
     WizardForm.ReadyLabel.Caption :=
-      'OBS Gamepad Hotkeys is ready to install. Review the detected OBS installation, then click Install.';
+      'OBS Gamepad Hotkeys is ready to install. Review the selected OBS target, then click Install.';
     WizardForm.ReadyMemo.Lines.Clear;
     WizardForm.ReadyMemo.Lines.Add('OBS GAMEPAD HOTKEYS  •  v{#MyAppVersion}');
     WizardForm.ReadyMemo.Lines.Add('');

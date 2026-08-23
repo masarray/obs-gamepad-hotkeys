@@ -1,26 +1,38 @@
 # Smart Windows Installer
 
-The release installer is built with Inno Setup and is designed for users who should not need to know OBS plugin folder layouts.
+The release installer is built with Inno Setup and is designed so end users do not need to understand OBS plugin folder layouts.
 
 ## Product experience
 
-The installer is intentionally branded as **OBS Gamepad Hotkeys**, not as a generic setup executable. The v0.1.5 polish includes:
+The installer is intentionally branded as **OBS Gamepad Hotkeys**, not as a generic setup executable.
 
-- Inno Setup's modern Windows 11 visual style with automatic light/dark adaptation.
-- A branded welcome page that immediately explains the plugin: native gamepad control for OBS Studio.
-- The repository's authored `gamepad.jpg` as the installer artwork source.
-- High-quality bicubic scaling during the build while preserving the complete authored sidebar image.
-- **No generated text overlay on top of `gamepad.jpg`**. Any copy already present in the artwork remains the single source of truth.
-- A small wizard image generated from the same artwork with no added copy.
-- A Ready page that clearly shows the detected OBS mode, OBS location, plugin target, and the default `B` / `START` controls.
-- An actionable OBS-running message instead of a generic file-in-use error.
-- A Finish option that launches OBS Studio and points the user toward **Tools > Gamepad Hotkeys**.
+- Inno Setup modern Windows 11 visual style with automatic light/dark adaptation.
+- Branded welcome page explaining native gamepad control for OBS Studio.
+- Repository-authored `gamepad.jpg` as the installer artwork source.
+- High-quality bicubic scaling while preserving the complete authored image.
+- No generated text overlay on top of `gamepad.jpg`.
+- Ready page showing selected OBS mode, OBS location, plugin target, and default `B` / `START` controls.
+- Actionable OBS-running message instead of a generic file-in-use error.
+- Finish option that launches OBS Studio and points the user toward **Tools > Gamepad Hotkeys**.
 
-The generated wizard PNGs live only under `installer/generated/` during a build and are ignored by git. `gamepad.jpg` is a required repository asset and CI fails if the image-based branding path is removed or if generated text is reintroduced over the artwork.
+The generated wizard PNGs live only under `installer/generated/` during a build and are ignored by git.
+
+## Target-selection contract
+
+v0.1.7 makes target selection explicit and multi-instance aware.
+
+A detected Standard OBS installation is useful information, but **must never prevent the user from selecting another Portable/custom OBS tree**. The installer therefore always offers:
+
+1. **Standard OBS Studio** — install as a system-wide third-party plugin.
+2. **OBS Studio Portable / custom OBS folder** — install into a selected OBS root.
+
+This is important on PCs where Standard OBS and one or more Portable OBS instances coexist.
+
+The optional `/OBSROOT="..."` command-line argument intentionally selects a custom/portable OBS root without displaying the target-selection pages. The supplied folder must contain `bin\64bit\obs64.exe`.
 
 ## Standard OBS Studio
 
-The installer auto-detects a normal OBS Studio installation from common install locations and Windows uninstall registry entries. For standard OBS Studio it installs the plugin to:
+For Standard OBS Studio the installer writes:
 
 `C:\ProgramData\obs-studio\plugins\obs-gamepad-hotkeys\bin\64bit\obs-gamepad-hotkeys.dll`
 
@@ -28,35 +40,73 @@ and module data to:
 
 `C:\ProgramData\obs-studio\plugins\obs-gamepad-hotkeys\data`
 
-This matches the extra third-party module path used by current Windows OBS builds (and OBS 31.1.1, which is the current build dependency baseline for this project).
+This is the preferred third-party plugin structure documented by OBS for Windows.
 
-## OBS Studio Portable
+Standard installs register an uninstall entry.
 
-Portable OBS deliberately does not add the ProgramData third-party plugin path. The installer therefore uses the portable OBS root layout:
+## OBS Studio Portable / custom root
+
+For a selected OBS root the installer writes:
 
 - DLL: `<OBS root>\obs-plugins\64bit\obs-gamepad-hotkeys.dll`
 - Data: `<OBS root>\data\obs-plugins\obs-gamepad-hotkeys\...`
 
-When standard OBS cannot be found, the installer offers Standard or Portable mode. Portable mode validates that `<OBS root>\bin\64bit\obs64.exe` exists before installation. Portable installs intentionally do not register a machine-wide Add/Remove Programs entry; the files stay self-contained with the portable OBS tree.
+The installer validates that `<OBS root>\bin\64bit\obs64.exe` exists before copying files.
 
-For automated portable testing, setup also accepts:
+Portable/custom-root installs intentionally do not register a machine-wide Add/Remove Programs entry; the plugin files remain self-contained with that OBS tree.
+
+When Setup launches a selected Portable target after installation it passes `--portable`, matching OBS's documented portable-mode launch mechanism. Users may also keep using an existing `portable_mode` / `portable_mode.txt` marker.
+
+## Portable/manual ZIP contract
+
+The release ZIP is named:
+
+`obs-gamepad-hotkeys-<version>-windows-x64-portable.zip`
+
+It is **not** a ProgramData plugin bundle. It is an OBS-root overlay intended to be extracted directly into the root of an OBS installation.
+
+Archive layout:
+
+```text
+obs-plugins/
+  64bit/
+    obs-gamepad-hotkeys.dll
+
+data/
+  obs-plugins/
+    obs-gamepad-hotkeys/
+      locale/
+        en-US.ini
+      licenses/
+        ...
+
+INSTALL-PORTABLE.txt
+```
+
+After extraction, `obs-gamepad-hotkeys.dll` must **not** exist under `<OBS root>\bin\64bit`.
+
+`scripts/package.ps1` includes staging guards, and GitHub Actions independently expands the final ZIP and verifies the required and forbidden paths before the artifact can be released.
+
+## Automated portable installation
+
+Setup accepts:
 
 `OBS-Gamepad-Hotkeys-Setup-v<version>.exe /OBSROOT="D:\Portable\obs-studio"`
 
-The path must be a portable OBS root containing `portable_mode.txt` or `portable_mode`.
+The root only needs to be a valid OBS tree containing `bin\64bit\obs64.exe`. A portable marker is not required because Setup launches that selected target with `--portable`.
 
 ## Running OBS
 
-The installer checks whether `obs64.exe` is running immediately before files are copied. It does not force-kill OBS. If OBS is open, the message is intentionally actionable: close OBS and retry Install.
+The installer checks whether `obs64.exe` is running immediately before files are copied. It does not force-kill OBS. If OBS is open, the user is asked to close it and retry Install.
 
 ## Local one-click build
 
 Double-click:
 
 - `BUILD-INSTALLER.cmd` — build the plugin + installer and select the resulting EXE in Explorer.
-- `BUILD-INSTALLER-AND-RUN.cmd` — build the plugin + installer and immediately launch the installer, which is the closest local test to the end-user experience.
+- `BUILD-INSTALLER-AND-RUN.cmd` — build the plugin + installer and immediately launch it.
 
-The build script automatically downloads a pinned Inno Setup 6.7.3 compiler from the official JRSoftware GitHub release if `ISCC.exe` is not already installed. The download is SHA-256 verified before use.
+The build script automatically downloads the pinned Inno Setup compiler when `ISCC.exe` is unavailable and verifies the download SHA-256 before use.
 
 Visual Studio 2022 C++ tools and CMake are still required to compile the OBS plugin itself.
 
@@ -65,14 +115,22 @@ Visual Studio 2022 C++ tools and CMake are still required to compile the OBS plu
 `.github/workflows/build-windows.yml` produces:
 
 - `OBS-Gamepad-Hotkeys-Setup-v<version>.exe`
-- `obs-gamepad-hotkeys-<version>-windows-x64.zip`
+- `obs-gamepad-hotkeys-<version>-windows-x64-portable.zip`
 - SHA-256 files for both
 
-Pushing a tag such as `v0.1.5` also creates the GitHub Release and attaches those files.
+Before upload, CI expands the Portable ZIP and asserts:
+
+- `obs-plugins\64bit\obs-gamepad-hotkeys.dll` exists.
+- `data\obs-plugins\obs-gamepad-hotkeys\locale\en-US.ini` exists.
+- `INSTALL-PORTABLE.txt` exists.
+- `bin\64bit\obs-gamepad-hotkeys.dll` does not exist.
+- legacy nested `obs-gamepad-hotkeys\bin\64bit\...` layout does not exist.
+
+A tag push, or a main-branch release commit containing `[release]`, publishes the GitHub Release and attaches those artifacts.
 
 ## Production code signing
 
-An unsigned EXE can still trigger Windows SmartScreen / Unknown Publisher even if the installer UI itself is clean. Production releases should be Authenticode-signed with a trusted code-signing certificate.
+An unsigned EXE can still trigger Windows SmartScreen / Unknown Publisher even if the installer UI is clean. Production releases should be Authenticode-signed with a trusted code-signing certificate.
 
 The GitHub workflow supports these repository secrets:
 
