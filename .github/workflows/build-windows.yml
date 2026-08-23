@@ -85,9 +85,39 @@ jobs:
           if (-not $dll) { throw 'Plugin DLL not found.' }
           ./scripts/sign-windows.ps1 -Files $dll.FullName
 
-      - name: Package manual plugin ZIP
+      - name: Package portable/manual ZIP
         shell: pwsh
         run: ./scripts/package.ps1
+
+      - name: Validate portable ZIP layout
+        shell: pwsh
+        run: |
+          $version = (Get-Content buildspec.json -Raw | ConvertFrom-Json).version
+          $zip = "dist/obs-gamepad-hotkeys-$version-windows-x64-portable.zip"
+          if (-not (Test-Path $zip)) { throw "Portable ZIP not found: $zip" }
+
+          $extract = Join-Path $env:RUNNER_TEMP "ogh-portable-layout-$version"
+          Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -Path $zip -DestinationPath $extract -Force
+
+          $required = @(
+            (Join-Path $extract 'obs-plugins\64bit\obs-gamepad-hotkeys.dll'),
+            (Join-Path $extract 'data\obs-plugins\obs-gamepad-hotkeys\locale\en-US.ini'),
+            (Join-Path $extract 'INSTALL-PORTABLE.txt')
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file -PathType Leaf)) { throw "Portable ZIP layout missing: $file" }
+          }
+
+          $forbidden = @(
+            (Join-Path $extract 'bin\64bit\obs-gamepad-hotkeys.dll'),
+            (Join-Path $extract 'obs-gamepad-hotkeys\bin\64bit\obs-gamepad-hotkeys.dll')
+          )
+          foreach ($file in $forbidden) {
+            if (Test-Path $file) { throw "Portable ZIP contains legacy/wrong DLL path: $file" }
+          }
+
+          Write-Host 'Portable ZIP is safe for direct extraction into an OBS root.'
 
       - name: Build smart installer
         shell: pwsh
@@ -105,7 +135,7 @@ jobs:
         run: |
           $version = (Get-Content buildspec.json -Raw | ConvertFrom-Json).version
           $installer = "dist/OBS-Gamepad-Hotkeys-Setup-v$version.exe"
-          $zip = "dist/obs-gamepad-hotkeys-$version-windows-x64.zip"
+          $zip = "dist/obs-gamepad-hotkeys-$version-windows-x64-portable.zip"
           $required = @($installer, $zip, "$installer.sha256", "$zip.sha256")
           foreach ($file in $required) {
             if (-not (Test-Path $file)) { throw "Missing release file: $file" }
@@ -119,7 +149,7 @@ jobs:
           "Build completed successfully for **v$version**." >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
           "For normal users, distribute **OBS-Gamepad-Hotkeys-Setup-v$version.exe**." >> $env:GITHUB_STEP_SUMMARY
-          "The ZIP is kept as a manual/fallback installation package." >> $env:GITHUB_STEP_SUMMARY
+          "For Portable/manual installs, **obs-gamepad-hotkeys-$version-windows-x64-portable.zip** is direct-extractable into the OBS root." >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -193,4 +223,4 @@ jobs:
           echo '### Release published' >> "$GITHUB_STEP_SUMMARY"
           echo '' >> "$GITHUB_STEP_SUMMARY"
           echo 'Normal users should download the **Setup EXE** from the GitHub Release.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'The installer auto-detects standard OBS Studio and supports OBS Portable.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Portable users can use Setup or the direct-extract **portable ZIP**.' >> "$GITHUB_STEP_SUMMARY"
